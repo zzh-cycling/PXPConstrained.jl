@@ -1,6 +1,6 @@
-using PXPConstrainted
+using PXPConstrained
 using Test
 
-@testset "PXPConstrainted.jl" begin
-    # Write your tests here.
+@testset "pxp functions" begin
+    include("PXP_functions.jl")
 end
