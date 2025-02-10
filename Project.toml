@@ -1,5 +1,5 @@
-name = "PXPConstrainted"
-uuid = "1499dd29-84ef-4be5-a102-0766f77dbee3"
+name = "PXPConstrained"
+uuid = "8cfe9474-f479-4508-8508-79c8ccd3ccb0"
 authors = ["Zhaohui Zhi <2276780832@qq.com> and contributors"]
 version = "1.0.0-DEV"
 

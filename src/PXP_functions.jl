@@ -214,7 +214,7 @@ function rdm_PXP(::Type{T}, subsystems::Vector{Int64}, state::Vector{ET}) where 
         val = zero(ET)
         for idr in idrs
             r = environ[idr]
-            idc = findfirst(==(r), idcs)
+            idc = findfirst(idc -> environ[idc] == r, idcs)
             if idc !== nothing
                 val += state[idr]' * state[idc]
             end

@@ -1,4 +1,4 @@
-module PXPConstrainted
+module PXPConstrained
 
 using LinearAlgebra
 using BitBasis
