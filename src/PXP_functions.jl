@@ -187,6 +187,8 @@ function rdm_PXP(::Type{T}, subsystems::Vector{Int64}, state::Vector{ET}) where 
     # Function to compute a reduced density matrix out of a given wave function. Its principle is to divide the system into left and right two parts, and use formula rho_reduced=sum_k I * <k|rho|k> * I, then compare how many states in the left part which are the same, while the right part is still the same.
 
     basis = PXP_basis(T)
+    @assert length(basis) == length(state) "basis and state must have the same length"
+
     system = [myreadbit(i, subsystems) for i in basis]
     remaining = setdiff(1:N, subsystems)
     environ = [myreadbit(i, remaining) for i in basis]
@@ -214,8 +216,9 @@ function rdm_PXP(::Type{T}, subsystems::Vector{Int64}, state::Vector{ET}) where 
         val = zero(ET)
         for idr in sub_basis_index[i]
             r = environ[idr]
-            if haskey(cache[j], r)
-                val += state[idr]' * state[cache[j][r]]
+            target = get(cache[j], r, -1)
+            if target != -1
+                @inbounds val += state[idr]' * state[target]
             end
         end
         reduced_dm[i, j] = val
