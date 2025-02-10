@@ -188,7 +188,8 @@ function rdm_PXP(::Type{T}, subsystems::Vector{Int64}, state::Vector{ET}) where 
 
     basis = PXP_basis(T)
     system = [myreadbit(i, subsystems) for i in basis]
-    environ = [myreadbit(i, setdiff(1:N, subsystems)) for i in basis]
+    remaining = setdiff(1:N, subsystems)
+    environ = [myreadbit(i, remaining) for i in basis]
     
     # Here we use a dictionary to store the category of left part of the basis, which is the basis of subsystem.
     sub_basis = Dict{T, Vector{Int}}()  # maps subsystem basis to its indices in `state`.
@@ -208,15 +209,13 @@ function rdm_PXP(::Type{T}, subsystems::Vector{Int64}, state::Vector{ET}) where 
 
     # for given basis of subsystem, we first obtain which state in total system will give the target subsystem basis.
     reduced_dm = zeros(ET, (size, size))
+    cache = [Dict(zip(environ[idcs], idcs)) for idcs in sub_basis_index]
     for i in 1:size, j in i:size
-        idrs = sub_basis_index[i]
-        idcs = sub_basis_index[j]
         val = zero(ET)
-        for idr in idrs
+        for idr in sub_basis_index[i]
             r = environ[idr]
-            idc = findfirst(idc -> environ[idc] == r, idcs)
-            if idc !== nothing
-                val += state[idr]' * state[idc]
+            if haskey(cache[j], r)
+                val += state[idr]' * state[cache[j][r]]
             end
         end
         reduced_dm[i, j] = val
