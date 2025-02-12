@@ -26,5 +26,17 @@ using PXPConstrained, BitBasis
 
     rdm = PXPConstrained.rdm_PXP(BitStr{N, Int}, collect(1:6), ones(322))
     @test size(rdm) == (21, 21)
+
+    map_idx = PXPConstrained.iso_total2K(BitStr{12, Int},0)
+    @test size(map_idx) == (322, 31)
+
+    rdm_K = PXPConstrained.rdm_PXP_K(BitStr{24, Int}, collect(1:12), ones(4341),0)
+    @test size(rdm_K) == (377, 377)
 end
 
+using BenchmarkTools
+using Profile
+
+@profile PXPConstrained.rdm_PXP_K(BitStr{24, Int}, collect(1:12), ones(4341),0)
+@time PXPConstrained.rdm_PXP_K(BitStr{26, Int}, collect(1:13), ones(10462),0)
+Profile.print(format=:flat, mincount=40)

@@ -6,6 +6,7 @@ version = "1.0.0-DEV"
 [deps]
 BitBasis = "50ba71b6-fa0f-514d-ae9a-0916efc90dcf"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
 
 [compat]
 julia = "1"

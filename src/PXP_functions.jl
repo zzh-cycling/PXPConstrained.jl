@@ -232,7 +232,7 @@ function iso_total2K(::Type{T}, k::Int64) where {N, T <: BitStr{N}}
     """
     Function to map the total basis to the K space basis
     """
-    basis = PXP_basis(N)
+    basis = PXP_basis(T)
 
     indices = Dict{Int, Vector{Int64}}()
 
@@ -245,32 +245,25 @@ function iso_total2K(::Type{T}, k::Int64) where {N, T <: BitStr{N}}
             indices[category] = [i]
         end
     end
-    basisK=sort(collect(keys(indices)), by = x -> x)
-    iso = zeros((length(basis), length(basisK)))
+    iso = zeros((length(basis), length(keys(indices))))
     
-    # 预分配 temp_lis
-    temp_lis = zeros(length(basis))
-
-    for i in eachindex(basisK)
-        state_index = indices[basisK[i]]
+    for (i, state_index) in enumerate(values(indices))
         l = length(state_index)
-
-        # 重置 temp_lis
-        fill!(temp_lis, 0)  # 先将 temp_lis 清零
-        temp_lis[state_index] .= 1/sqrt(l)
-        iso[:, i] = temp_lis
+        iso[state_index, i] .= 1/sqrt(l)
     end
+
     return iso
 end
 
-function rdm_PXP_K(N::Int64, subsystems::Vector{Int64}, state::Vector{Float64}, k::Int64)
-    state=iso_total2K(N,k)*state
-    reduced_dm = rdm_PXP(N, subsystems, state)
+function rdm_PXP_K(::Type{T}, subsystems::Vector{Int64}, state::Vector{Float64}, k::Int64) where {N, T <: BitStr{N}}
+
+    state=iso_total2K(T,k)*state
+    reduced_dm = rdm_PXP(T, subsystems, state)
     return reduced_dm
 end
 
-function Inv_proj_matrix(N::Int64)
-    basis=PXP_basis(N)
+function Inv_proj_matrix(::Type{T}) where {N, T <: BitStr{N}}
+    basis=PXP_basis(T)
     l=length(basis)
     Imatrix=zeros((l,l))
     reversed_basis=similar(basis)
@@ -475,9 +468,8 @@ function PXP_MSS_Ham(::Type{T}, k::Int, inv::Int64=1) where {N, T <: BitStr{N}}
     end
 end
 
-function wf_time_evolution(psi0::Union{Vector{Float64}, Vector{ComplexF64}}, times::Vector{Float64}, energy::Vector{Float64},states::Matrix{Float64})
-    T=typeof(psi0)
-    wflis=Vector{T}(undef,length(times))
+function wf_time_evolution(psi0::AbstractVector{T}, times::Vector{Float64}, energy::Vector{Float64},states::Matrix{Float64}) where {T <: Real}
+    wflis=Vector{AbstractVector{T}}(undef,length(times))
     for (i,t) in enumerate(times)
         wf=similar(psi0)
         for (j, state) in enumerate(eachcol(states))
