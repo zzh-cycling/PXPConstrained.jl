@@ -1,7 +1,9 @@
 using Test
 using PXPConstrained, BitBasis
+using BenchmarkTools
+using Profile
 
-@testset "Fibonacci chain" begin
+@testset "pxp functions" begin
     N=12
     state=BitStr{N}(0)
     res = PXPConstrained.Fibonacci_chain_OBC(BitStr{N})
@@ -34,9 +36,10 @@ using PXPConstrained, BitBasis
     @test size(rdm_K) == (377, 377)
 end
 
-using BenchmarkTools
-using Profile
+
 
 @profile PXPConstrained.rdm_PXP_K(BitStr{24, Int}, collect(1:12), ones(4341),0)
 @time PXPConstrained.rdm_PXP_K(BitStr{26, Int}, collect(1:13), ones(10462),0)
 Profile.print(format=:flat, mincount=40)
+@time PXPConstrained.rdm_PXP_K(BitStr{28, Int}, collect(1:14), ones(25415),0)
+length(PXPConstrained.PXP_K_basis(BitStr{28, Int},0)[1])

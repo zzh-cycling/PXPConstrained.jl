@@ -110,12 +110,12 @@ function find_common_elements(list1, list2)
     return indices1, indices2
 end
 
-function reduced_dm_PXP(N::Int64, l::Int64, state::Vector{Float64})
+function reduced_dm_PXP(::Type{T}, l::Int64, state::Vector{ET}) where {N, T <: BitStr{N}, ET}
     # At least faster than tn contraction, and idea is similar to the above function
     """
     Function to compute a reduced density matrix out of a given wave function. Its principle is to divide the system into left and right two parts, and use formula rho_reduced=sum_k I * <k|rho|k> * I, then compare how many states in the left part which are the same, while the right part is still the same.
     """
-    basis=PXP_basis(N)
+    basis=PXP_basis(T)
     left_sys=[readbit(i, l+1:N...) for i in basis]
     right_sys=[readbit(i, 1:l...) for i in basis]
     m=length(left_sys)
@@ -262,7 +262,7 @@ function rdm_PXP_K(::Type{T}, subsystems::Vector{Int64}, state::Vector{Float64},
     return reduced_dm
 end
 
-function Inv_proj_matrix(::Type{T}) where {N, T <: BitStr{N}}
+function inversion(::Type{T}) where {N, T <: BitStr{N}}
     basis=PXP_basis(T)
     l=length(basis)
     Imatrix=zeros((l,l))
@@ -487,7 +487,7 @@ function myprint(io::IO, xs...)
 end
 
 
-function translation_matrix(::Type{T}) where {N, T <: BitStr{N}}
+function translation(::Type{T}) where {N, T <: BitStr{N}}
     basis=PXP_basis(T)
     Mat=zeros(Float64,(length(basis),length(basis)))
     for (i,n) in enumerate(basis)
@@ -564,18 +564,6 @@ function actingHminus_PXP(::Type{T}, rowstate::T) where {N, T <: BitStr{N}}
     return output
 end
 
-
-function sum_of_powers(N::Int)
-    total_sum = 0
-    current_power = N - 1
-    while current_power >= 1
-        total_sum += 2^current_power
-        current_power -= 2
-    end
-    return total_sum
-end
-
-
 function iso_total2FSA(::Type{T}) where {N, T <: BitStr{N}}
     # Once you have isometry, you can use it to map the total basis to the target basis. So you do not need to write the PXP_FSA_basis function.
     basis= PXP_basis(T)
@@ -617,8 +605,16 @@ function PXP_FSA_Ham(::Type{T}) where {N, T <: BitStr{N}}
     # Examples
     """
     Ham = PXP_Ham(T, true)
-    iso = load("/Users/cycling/Documents/projects/big_data/scar_thermal_FSA/iso_FSA/iso_total2FSA$(N).jld", "iso")
-    # iso = iso_total2FSA(N)
+    file_path = "/Users/cycling/Documents/projects/big_data/scar_thermal_FSA/iso_FSA/iso_total2FSA$(N).jld"
+
+    # 检查文件是否存在
+    if isfile(file_path)
+        # 如果文件存在，执行加载操作
+        iso = load(file_path, "iso")
+    else
+        iso = iso_total2FSA(N)
+    end
+    
     H = iso' * Ham * iso
     return H
 end

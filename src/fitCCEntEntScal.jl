@@ -6,9 +6,7 @@ function fitCCEntEntScal(
 
     # log of chord length / 6 for open boundary
     logChord(l, L) = @. log(sin(π * l /L))/6
-    # @. macro apply dot operation, make codes faster and less allocation. For example:
-    # f(x) = 3x.^2 + 4x + 7x.^3;
-    # fdot(x) = @. 3x^2 + 4x + 7x^3; # equivalent to 3 .* x.^2 .+ 4 .* x .+ 7 .* x.^3
+    
     L = length(SvN_list) + 1
 
     # fit scaling
@@ -58,9 +56,7 @@ function new_fitCCEntEntScal(
 
     # log of chord length / 6 for open boundary
     logChord(l, L) = @. log(sin(π * l /L))/6
-    # @. macro apply dot operation, make codes faster and less allocation. For example:
-    # f(x) = 3x.^2 + 4x + 7x.^3;
-    # fdot(x) = @. 3x^2 + 4x + 7x^3; # equivalent to 3 .* x.^2 .+ 4 .* x .+ 7 .* x.^3
+
     L = length(SvN_list) + 1
     mincut=mincut-1
     # fit scaling

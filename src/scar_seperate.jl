@@ -1,4 +1,3 @@
-include("PXP_basis.jl")
 
 function proj_FSA(N::Int64)
     """
@@ -19,42 +18,6 @@ function proj_FSAinTotal(N::Int64)
     Proj=iso*states*states'*iso'
     return Proj
 end
-
-
-# function sep_scar_FSA(N::Int64,energy::Vector{Float64},states::Matrix{Float64})
-#     indices=[index for (index,value) in enumerate(energy) if abs(value)<=1e-8]
-#     P_FSA=proj_FSAinTotal(N)
-
-#     myprint(stdout,"P_FSA complete")
-#     iso_0modes=states[:,indices]
-#     # P_0modes=iso_0modes*iso_0modes'
-
-#     PPP_symmetrized = (iso_0modes'*P_FSA*iso_0modes + (iso_0modes'*P_FSA*iso_0modes)') / 2
-#     myprint(stdout,"PPP complete")
-#     vals, vecs = eigen(PPP_symmetrized)
-#     vecs=iso_0modes*vecs
-
-#     Inv=Inv_proj_matrix(N)
-#     states=vecs[:,1:end-1]
-#     total_states=zeros(size(states)[1],2*size(states)[2])
-#     l=size(states)[1]
-#     for i in 1:size(states)[2]
-
-#         stp=(I(l)+Inv)/2*states[:,i]
-#         @show norm(stp)
-#         if norm(stp) > 0
-#             stp=stp/norm(stp)
-#         end
-#         stn=(I(l)-Inv)/2*states[:,i]
-#         @show norm(stn)
-#         if norm(stn) > 0
-#             stn=stn/norm(stn)
-#         end
-#         total_states[:,2*i-1]=stp
-#         total_states[:,2*i]=stn
-#     end
-#     return vecs[:,end], total_states
-# end
 
 function sep_scar_FSA(N::Int64,energy::Vector{Float64},states::Matrix{Float64})
     indices=[index for (index,value) in enumerate(energy) if abs(value)<=1e-8]
@@ -271,6 +234,28 @@ function vec2k0pi(N::Int64, state::Vector{Float64})
     return statek0,statekpi
 end
 
+function gram_schmidt(vectors::Matrix{Float64})
+    n = size(vectors, 2)
+    m = size(vectors, 1)
+
+    orthogonal_vectors = zeros(Float64, m, n)
+
+    for i in 1:n
+        
+        v_i = vectors[:, i]
+
+        for j in 1:(i-1)
+            proj_j = (dot(v_i, orthogonal_vectors[:, j]) / dot(orthogonal_vectors[:, j], orthogonal_vectors[:, j])) * orthogonal_vectors[:, j]
+            v_i -= proj_j
+        end
+
+        v_i /= norm(v_i)
+        orthogonal_vectors[:, i] = v_i
+    end
+
+    return orthogonal_vectors
+end
+
 function sep_scar_exact(N::Int64, energy::Vector{Float64}, states::Matrix{Float64})
     indices = [index for (index, value) in enumerate(energy) if abs(value) <= 1e-8]
     T = translation_matrix(N)
@@ -289,32 +274,6 @@ function sep_scar_exact(N::Int64, energy::Vector{Float64}, states::Matrix{Float6
 
     exact_scar_prime=scar1-scar2
     exact_scar_prime/=norm(exact_scar_prime)
-
-    function gram_schmidt(vectors::Matrix{Float64})
-        # 获取向量的数量和维度
-        n = size(vectors, 2)
-        m = size(vectors, 1)
-    
-        # 初始化一个矩阵来存储正交化后的向量
-        orthogonal_vectors = zeros(Float64, m, n)
-    
-        for i in 1:n
-            # 取出当前向量
-            v_i = vectors[:, i]
-    
-            # 从当前向量中减去在之前向量上的投影
-            for j in 1:(i-1)
-                proj_j = (dot(v_i, orthogonal_vectors[:, j]) / dot(orthogonal_vectors[:, j], orthogonal_vectors[:, j])) * orthogonal_vectors[:, j]
-                v_i -= proj_j
-            end
-    
-            # 将结果存储到 orthogonal_vectors 中
-            v_i /= norm(v_i)
-            orthogonal_vectors[:, i] = v_i
-        end
-    
-        return orthogonal_vectors
-    end
 
     thermal_ensemble=gram_schmidt(hcat(exact_scar,exact_scar_prime,states[:,indices]))[:,3:end]
 
