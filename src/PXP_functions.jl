@@ -110,12 +110,12 @@ function find_common_elements(list1, list2)
     return indices1, indices2
 end
 
-function reduced_dm_PXP(N::Int64, l::Int64, state::Vector{Float64})
+function reduced_dm_PXP(::Type{T}, l::Int64, state::Vector{ET}) where {N, T <: BitStr{N}, ET}
     # At least faster than tn contraction, and idea is similar to the above function
     """
     Function to compute a reduced density matrix out of a given wave function. Its principle is to divide the system into left and right two parts, and use formula rho_reduced=sum_k I * <k|rho|k> * I, then compare how many states in the left part which are the same, while the right part is still the same.
     """
-    basis=PXP_basis(N)
+    basis=PXP_basis(T)
     left_sys=[readbit(i, l+1:N...) for i in basis]
     right_sys=[readbit(i, 1:l...) for i in basis]
     m=length(left_sys)
@@ -234,20 +234,21 @@ function iso_total2K(::Type{T}, k::Int64) where {N, T <: BitStr{N}}
     """
     basis = PXP_basis(T)
 
-    indices = Dict{Int, Vector{Int64}}()
+    k_dic = Dict{Int, Vector{Int64}}()
 
     for i in eachindex(basis)
         state=basis[i]
         category = get_representative(state)[1]
-        if haskey(indices, category)
-            push!(indices[category], i)
+        if haskey(k_dic, category)
+            push!(k_dic[category], i)
         else
-            indices[category] = [i]
+            k_dic[category] = [i]
         end
     end
-    iso = zeros((length(basis), length(keys(indices))))
     
-    for (i, state_index) in enumerate(values(indices))
+    iso = zeros((length(basis), length(keys(k_dic))))
+    
+    for (i, state_index) in enumerate(values(k_dic))
         l = length(state_index)
         iso[state_index, i] .= 1/sqrt(l)
     end
@@ -262,8 +263,61 @@ function rdm_PXP_K(::Type{T}, subsystems::Vector{Int64}, state::Vector{Float64},
     return reduced_dm
 end
 
-function Inv_proj_matrix(::Type{T}) where {N, T <: BitStr{N}}
-    basis=PXP_basis(T)
+function iso_total2MSS(::Type{T}, k::Int64, inv::Int64=1) where {N, T <: BitStr{N}}
+    """
+    Function to map the total basis to the MSS space basis, k can only equal to 0 or N/2(pi)
+    """
+    basis = PXP_basis(T)
+    basisK, basis_dic = PXP_K_basis(T, k)
+
+    MSS_dic = Dict{Int, Vector{Int64}}()
+
+    # Below procedure is to collapse the extra basis in K space that can be converted mutually to MSS space.
+    if inv==1
+        for i in eachindex(basisK)
+            n = basisK[i]
+            # here we calculate the representative state of the inversion of n
+            category = get_representative(breflect(n))[1]
+            if haskey(MSS_dic, category)
+                push!(MSS_dic[category], i)
+            else
+                MSS_dic[category] = [i]
+            end
+        end
+
+    else
+        for i in eachindex(basisK)
+            n = basisK[i]
+            category = get_representative(breflect(n))[1]
+            if n <= min(category, n)
+                MSS_dic[n] = basis_dic[n]
+            end
+        end    
+        
+        index=findall(x -> x==2, qlist)
+        MSS_dic = Dict(k => v for k in MSS[index] for v in [MSS_dic[k]])
+    
+    end
+
+    iso = zeros((length(basis), length(keys(MSS_dic))))
+    
+    for (i, state_index) in enumerate(values(MSS_dic))
+        l = length(state_index)
+        iso[state_index, i] .= 1/sqrt(l)
+    end
+
+    return iso
+end
+
+function rdm_PXP_MSS(::Type{T}, subsystems::Vector{Int64}, state::Vector{Float64}, k::Int64, inv::Int64=1) where {N, T <: BitStr{N}}
+
+    state=iso_total2MSS(T, k, inv)*state
+    reduced_dm = rdm_PXP(T, subsystems, state)
+    return reduced_dm
+end
+
+function inversion_matrix(N::Int64)
+    basis=PXP_basis(BitStr{N, Int})
     l=length(basis)
     Imatrix=zeros((l,l))
     reversed_basis=similar(basis)
@@ -487,8 +541,8 @@ function myprint(io::IO, xs...)
 end
 
 
-function translation_matrix(::Type{T}) where {N, T <: BitStr{N}}
-    basis=PXP_basis(T)
+function translation_matrix(N::Int64)
+    basis=PXP_basis(BitStr{N, Int})  
     Mat=zeros(Float64,(length(basis),length(basis)))
     for (i,n) in enumerate(basis)
         m=cyclebits(n, 1)
@@ -564,18 +618,6 @@ function actingHminus_PXP(::Type{T}, rowstate::T) where {N, T <: BitStr{N}}
     return output
 end
 
-
-function sum_of_powers(N::Int)
-    total_sum = 0
-    current_power = N - 1
-    while current_power >= 1
-        total_sum += 2^current_power
-        current_power -= 2
-    end
-    return total_sum
-end
-
-
 function iso_total2FSA(::Type{T}) where {N, T <: BitStr{N}}
     # Once you have isometry, you can use it to map the total basis to the target basis. So you do not need to write the PXP_FSA_basis function.
     basis= PXP_basis(T)
@@ -617,8 +659,14 @@ function PXP_FSA_Ham(::Type{T}) where {N, T <: BitStr{N}}
     # Examples
     """
     Ham = PXP_Ham(T, true)
-    iso = load("/Users/cycling/Documents/projects/big_data/scar_thermal_FSA/iso_FSA/iso_total2FSA$(N).jld", "iso")
-    # iso = iso_total2FSA(N)
+    file_path = "/Users/cycling/Documents/projects/big_data/scar_thermal_FSA/iso_FSA/iso_total2FSA$(N).jld"
+
+    if isfile(file_path)
+        iso = load(file_path, "iso")
+    else
+        iso = iso_total2FSA(T)
+    end
+    
     H = iso' * Ham * iso
     return H
 end
