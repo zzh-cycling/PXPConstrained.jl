@@ -1,15 +1,15 @@
 ITensors.set_warn_order(60)
 
-function proj_FSA(N::Int64)
+function proj_FSA(::Type{T}) where {N, T <: BitStr{N}}
     """
     Generate the projection matrix for the FSA subspace, which should equals to identity matrix in FSA subspace. Meanwhile not equal to identity matrix in the total Hilbert space. Input N is the size of the system, return the projection matrix.
     """
-    energy,states=eigen(PXP_FSA_Ham(BitStr{N, Int}))
+    energy,states=eigen(PXP_FSA_Ham(T))
 
     return states*states'
 end
 
-function proj_FSA2total(N::Int64)
+function proj_FSA2total(::Type{T}) where {N, T <: BitStr{N}}
     # iso=iso_total2FSA(N)
 
     parent_path=homedir()
@@ -18,18 +18,18 @@ function proj_FSA2total(N::Int64)
     if isfile(file_path)
         iso = load(file_path, "iso")
     else
-        iso = iso_total2FSA(BitStr{N, Int})
+        iso = iso_total2FSA(T)
     end
     
     myprint(stdout,"iso complete")
-    energy,states=eigen(PXP_FSA_Ham(BitStr{N, Int}))
+    energy,states=eigen(PXP_FSA_Ham(T))
     Proj=iso*states*states'*iso'
     return Proj
 end
 
-function sep_scar_FSA(N::Int64,energy::Vector{Float64},states::Matrix{Float64})
+function sep_scar_FSA(::Type{T}, energy::Vector{Float64},states::Matrix{Float64}) where {N, T <: BitStr{N}}
     indices=[index for (index,value) in enumerate(energy) if abs(value)<=1e-8]
-    P_FSA=proj_FSA2total(N)
+    P_FSA=proj_FSA2total(T)
 
     myprint(stdout,"P_FSA complete")
     iso_0modes=states[:,indices]
@@ -46,9 +46,9 @@ function sep_scar_FSA(N::Int64,energy::Vector{Float64},states::Matrix{Float64})
     return scar,thermal
 end
 
-function sep_scar_FSA_inv(N::Int64,energy::Vector{Float64},states::Matrix{Float64})
+function sep_scar_FSA_inv(::Type{T},energy::Vector{Float64},states::Matrix{Float64}) where {N, T <: BitStr{N}}
     indices=[index for (index,value) in enumerate(energy) if abs(value)<=1e-8]
-    P_FSA=proj_FSA2total(N)
+    P_FSA=proj_FSA2total(T)
 
     myprint(stdout,"P_FSA complete")
     iso_0modes=states[:,indices]
@@ -59,7 +59,7 @@ function sep_scar_FSA_inv(N::Int64,energy::Vector{Float64},states::Matrix{Float6
     vals, vecs = eigen(PPP_symmetrized)
     vecs=iso_0modes*vecs
 
-    Inv=inversion_matrix(N)
+    Inv=inversion_matrix(T)
     states=vecs[:,1:end-1]
     total_states=Vector{Float64}[]
     l=size(states)[1]
@@ -127,10 +127,10 @@ function proj_Z2(energy::Vector{Float64}, states::Matrix{Float64})
 end
 
 
-function proj_invZ2(N::Int64, states::Matrix{Float64},indices::Vector{Int64})
+function proj_invZ2(::Type{T}, states::Matrix{Float64},indices::Vector{Int64}) where {N, T <: BitStr{N}}
     # Create the operator in the new basis
     # Actually we find that the non correct overlap between the eigenstates and Z2states is due to the superposition of the degenrate scar states and thermal states in zero modes subspace. Not mainly due to the inversion symmetry.
-    basis = PXP_basis(BitStr{N})
+    basis = PXP_basis(T)
     projected_matrix = zeros(length(indices), length(indices))
     for i in eachindex(indices)
         for j in i: length(indices)
@@ -138,7 +138,7 @@ function proj_invZ2(N::Int64, states::Matrix{Float64},indices::Vector{Int64})
             v = real(states[:, indices[j]])
             # Because we are in the constrained subspace, the overlap between the states and Z2state is just the last element of the state. p[i,j]=u[end]*v[end] basically saying 
             #<state i|Z2state><Z2state|state j>
-            z2tilde=findfirst(x->x=="01"^div(N,2),basis_string)+1
+            z2tilde=findfirst(x->x==div(2^N-1, 3),basis)+1
             projected_matrix[i, j] = u[end] * v[end]+u[z2tilde] * v[z2tilde]+u[end] *v[z2tilde]+ u[z2tilde] *v[end]#if we choose u[1597] * v[1597] we get the same result, not only overlap and entanglement entropy.
             projected_matrix[j, i] = projected_matrix[i, j]
         end
@@ -200,18 +200,18 @@ function vec2k0pi(N::Int64, state::Vector{Float64})
     return statek0,statekpi
 end
 
-function sep_scar_exact(N, energy::Vector{Float64}, states::Matrix{Float64}) 
+function sep_scar_exact(::Type{T}, energy::Vector{Float64}, states::Matrix{Float64}) where {N, T <: BitStr{N}} 
     indices = [index for (index, value) in enumerate(energy) if abs(value) <= 1e-8]
-    T = translation_matrix(N)
+    Trans = translation_matrix(T)
     scar=gene_scar(N)
     scar1=storage(scar)
 
-    basis= PXP_basis(BitStr{N, Int})
+    basis= PXP_basis(T)
     basis_int = [i.buf for i in basis]
     scar1=scar1[basis_int.+1]
     scar1/=norm(scar1)
 
-    scar2=T*scar1
+    scar2=Trans*scar1
     scar2/=norm(scar2)
 
     exact_scar= scar1+scar2

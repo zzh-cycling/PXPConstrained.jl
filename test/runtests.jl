@@ -35,38 +35,47 @@ using LinearAlgebra
     rdm_K = rdm_PXP_K(BitStr{24, Int}, collect(1:12), ones(4341),0)
     @test size(rdm_K) == (377, 377)
 
+    T=translation_matrix(BitStr{N, Int})
+    @test isapprox(T^N, I(size(T)[1]), atol=1e-6)
+    Inv=inversion_matrix(BitStr{N, Int})
+
+    Inv=inversion_matrix(BitStr{N, Int})
+    @test isapprox(Inv^2, I(size(Inv)[1]))
+
+    # map_idx_MSS=iso_total2MSS(BitStr{12, Int},0)
 
 end
 
 @testset "scar separate" begin
     N=12
-    proj=proj_FSA(N)
+    T = BitStr{N, Int}
+    proj=proj_FSA(T)
     @test isapprox(proj, I(size(proj)[1]), atol=1e-6)
 
-    proj=proj_FSA2total(N)
+    proj=proj_FSA2total(T)
     @test size(proj) == (322, 322)
 
-    H = PXP_Ham(BitStr{N, Int})
+    H = PXP_Ham(T)
     energy, states= eigen(H)
-    scar, total_states = sep_scar_FSA(N, energy, states)
+    scar, total_states = sep_scar_FSA(T, energy, states)
 
     Ob=randn((322, 322))
     proj=proj_Ob(energy, states, Ob)
     @test size(proj)==(22,22)
 
-    scar, thermal = sep_scar_FSA(N, energy, states)
+    scar, thermal = sep_scar_FSA(T, energy, states)
     total_st=hcat(scar, thermal)
     @test isapprox(total_st'*total_st, I(22))
 
     scar=gene_scar(N)
     scar1=storage(scar)
 
-    basis= PXP_basis(BitStr{N, Int})
+    basis= PXP_basis(T)
     basis_int = [i.buf for i in basis]
     scar1=scar1[basis_int.+1]
     @test isapprox(norm(H*scar1), 0, atol=1e-12)
 
-    exact_scar,exact_scar_prime,thermal_ensemble=sep_scar_exact(N, energy, states)
+    exact_scar,exact_scar_prime,thermal_ensemble=sep_scar_exact(T, energy, states)
     total_st = hcat(exact_scar, exact_scar_prime, thermal_ensemble)
     @test isapprox(total_st'*total_st, I(322))
 end
@@ -76,27 +85,28 @@ end
     @test isapprox(EE(ones((100,100))),-460.51701859880916)
 
     N=12
-    H = PXP_Ham(BitStr{N, Int})
+    T = BitStr{N, Int}
+    H = PXP_Ham(T)
     energy, states= eigen(H)
     state=states[:,1]
     splitlis=Vector(1:N-1)
-    @test isapprox(fitCCEntEntScal(EE_PXP_state(N,splitlis,state); mincut=1, pbc=true)[1], 0.19684135629232746)
+    @test isapprox(fitCCEntEntScal(EE_PXP_state(T,splitlis,state); mincut=1, pbc=true)[1], 0.19684135629232746)
 
     A, B, C = collect(1:3), collect(4:6), collect(7:9)
-    scar, thermal = sep_scar_FSA(N, energy, states)
-    @test isapprox(Tri_mutual_information(N, scar, (A, B, C))/log(2), 0.85760514, atol=1e-6)
-    @test isapprox(Mutual_information(N, scar, (A, C)), 0.97392703, atol=1e-6)
+    scar, thermal = sep_scar_FSA(T, energy, states)
+    @test isapprox(Tri_mutual_information(T, scar, (A, B, C))/log(2), 0.85760514, atol=1e-6)
+    @test isapprox(Mutual_information(T, scar, (A, C)), 0.97392703, atol=1e-6)
 
     z2state=zeros(322)
     z2state[end]=1
-    @test isapprox(QFI(domain_wall(N), z2state),0)
+    @test isapprox(QFI(domain_wall(T), z2state),0)
 
-    Ob=diagm(domain_wall(N))
+    Ob=diagm(domain_wall(T))
     @test isapprox(QFI(Ob, z2state),0)
-    @test QFI(domain_wall(4), ones(7)) == 48.0
+    @test QFI(domain_wall(BitStr{4, Int}), ones(7)) == 48.0
 
-    P=particlenumber(4)
-    @test isapprox(QFI(particlenumber(N), z2state),0)
+    P=particlenumber(BitStr{4, Int})
+    @test isapprox(QFI(particlenumber(T), z2state),0)
     @test diag(P)==[0.0, 1.0, 1.0, 1.0, 2.0, 1.0, 2.0]
     
     vals, vecs= eigen(PXP_Ham(BitStr{16, Int}))
@@ -111,10 +121,10 @@ end
     vec_202 = vecs[:, 202]
     vec_82 = vecs[:, 82]
 
-    qfi_728 = QFI(domain_wall(16), vec_728) / 16
-    qfi_408 = QFI(domain_wall(16), vec_408) / 16
-    qfi_202 = QFI(domain_wall(16), vec_202) / 16
-    qfi_82 = QFI(domain_wall(16), vec_82) / 16
+    qfi_728 = QFI(domain_wall(BitStr{16, Int}), vec_728) / 16
+    qfi_408 = QFI(domain_wall(BitStr{16, Int}), vec_408) / 16
+    qfi_202 = QFI(domain_wall(BitStr{16, Int}), vec_202) / 16
+    qfi_82 = QFI(domain_wall(BitStr{16, Int}), vec_82) / 16
     
     @test isapprox(qfi_728, 7.899781, atol=1e-6)
     @test isapprox(qfi_408, 7.6411086, atol=1e-6)

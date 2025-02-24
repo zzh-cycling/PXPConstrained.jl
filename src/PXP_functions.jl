@@ -2,23 +2,6 @@
 This PXP_basis package is used to generate the basis for PXP model, and also the Hamiltonian matrix for PXP model according to their basis.  Totally we have three kinds of functions, basis, Ham, reduced_dm. We consider both PBC and OBC in the basis and Hamiltonian matrix, and we also consider the translational symmetry and inversion symmetry, and FSA subspace.
 """
 
-function Fibonacci_seq(N::Int64)
-    # Generate Fibonacci sequence
-    if N==0
-        return []
-    elseif  N==1
-        return [1]
-    else
-        fib=[0,1]
-        for i in 3:N
-            push!(fib,fib[i-1]+fib[i-2])
-        end
-        return fib
-    end
-
-end
-
-
 function Fibonacci_chain_OBC(::Type{T}) where {N, T <: BitStr{N}}
     # Generate Fibonacci chain for PXP model with open boundary condition
     fib_chain=[[T(0), T(1)],[T(0), T(1), T(2)]]
@@ -263,12 +246,12 @@ function rdm_PXP_K(::Type{T}, subsystems::Vector{Int64}, state::Vector{Float64},
     return reduced_dm
 end
 
-function iso_total2MSS(::Type{T}, k::Int64, inv::Int64=1) where {N, T <: BitStr{N}}
+function iso_K2MSS(::Type{T}, k::Int64, inv::Int64=1) where {N, T <: BitStr{N}}
     """
-    Function to map the total basis to the MSS space basis, k can only equal to 0 or N/2(pi)
+    Function to map the MSS basis to the K space basis
     """
     basis = PXP_basis(T)
-    basisK, basis_dic = PXP_K_basis(T, k)
+    basisK, k_dic = PXP_K_basis(T, k)
 
     MSS_dic = Dict{Int, Vector{Int64}}()
 
@@ -277,12 +260,15 @@ function iso_total2MSS(::Type{T}, k::Int64, inv::Int64=1) where {N, T <: BitStr{
         for i in eachindex(basisK)
             n = basisK[i]
             # here we calculate the representative state of the inversion of n
-            category = get_representative(breflect(n))[1]
-            if haskey(MSS_dic, category)
-                push!(MSS_dic[category], i)
-            else
-                MSS_dic[category] = [i]
+            nR = get_representative(breflect(n))[1]
+            if n <= min(nR, n)
+                if haskey(MSS_dic, nR)
+                    push!(MSS_dic[nR], i)
+                else
+                    MSS_dic[nR] = [i]
+                end
             end
+            
         end
 
     else
@@ -290,7 +276,7 @@ function iso_total2MSS(::Type{T}, k::Int64, inv::Int64=1) where {N, T <: BitStr{
             n = basisK[i]
             category = get_representative(breflect(n))[1]
             if n <= min(category, n)
-                MSS_dic[n] = basis_dic[n]
+                MSS_dic[n] = k_dic[n]
             end
         end    
         
@@ -298,6 +284,25 @@ function iso_total2MSS(::Type{T}, k::Int64, inv::Int64=1) where {N, T <: BitStr{
         MSS_dic = Dict(k => v for k in MSS[index] for v in [MSS_dic[k]])
     
     end
+
+    iso = zeros((length(basisK), length(MSS_dic)))
+
+    for (i, state_index) in enumerate(values(MSS_dic))
+        l = length(state_index)
+        iso[state_index, i] .= 1/sqrt(l)
+    end
+
+    return iso
+end
+
+function iso_total2MSS(::Type{T}, k::Int64, inv::Int64=1) where {N, T <: BitStr{N}}
+    """
+    Function to map the total basis to the MSS space basis, k can only equal to 0 or N/2(pi)
+    """
+    basis = PXP_basis(T)
+    basisK, k_dic = PXP_K_basis(T, k)
+
+    
 
     iso = zeros((length(basis), length(keys(MSS_dic))))
     
@@ -316,8 +321,8 @@ function rdm_PXP_MSS(::Type{T}, subsystems::Vector{Int64}, state::Vector{Float64
     return reduced_dm
 end
 
-function inversion_matrix(N::Int64)
-    basis=PXP_basis(BitStr{N, Int})
+function inversion_matrix(::Type{T}) where {N, T <: BitStr{N}}
+    basis=PXP_basis(T)
     l=length(basis)
     Imatrix=zeros((l,l))
     reversed_basis=similar(basis)
@@ -541,8 +546,8 @@ function myprint(io::IO, xs...)
 end
 
 
-function translation_matrix(N::Int64)
-    basis=PXP_basis(BitStr{N, Int})  
+function translation_matrix(::Type{T}) where {N, T <: BitStr{N}}
+    basis=PXP_basis(T)  
     Mat=zeros(Float64,(length(basis),length(basis)))
     for (i,n) in enumerate(basis)
         m=cyclebits(n, 1)

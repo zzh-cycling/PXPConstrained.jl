@@ -13,11 +13,11 @@ function EE(subrm::Matrix{Float64})
      return EE
 end
 
-function EE_PXP_idx(N::Int64, splitlis::Vector{Int64}, idx::Int64) 
+function EE_PXP_idx(::Type{T}, splitlis::Vector{Int64}, idx::Int64)  where {N, T <: BitStr{N}}
     """
     only calculate half the EE list
     """
-    energy, states= eigen(PXP_Ham(BitStr{N, Int}))
+    energy, states= eigen(PXP_Ham(T))
     idx_state=states[:,idx]
     EE_lis=zeros(div(length(splitlis)+1,2))
     for m in 1:div(length(splitlis)+1,2)
@@ -28,18 +28,18 @@ function EE_PXP_idx(N::Int64, splitlis::Vector{Int64}, idx::Int64)
     return EE_lis
 end
 
-function EE_PXP_state(N::Int64,splitlis::Vector{Int64},state::Vector{ET}) where {ET <: Real}
+function EE_PXP_state(::Type{T},splitlis::Vector{Int64},state::Vector{ET}) where {N, T <: BitStr{N}, ET <: Real}
     EE_lis=zeros(length(splitlis))
     for m in eachindex(EE_lis)
-        subscar=rdm_PXP(BitStr{N, Int},collect(1:splitlis[m]), state)
+        subscar=rdm_PXP(T, collect(1:splitlis[m]), state)
         EE_lis[m]=EE(subscar)
     end
     return EE_lis
 end
 
-function EE_scaling_fig(N::Int64, state::Vector{T},fit::String) where {T <: Real}
+function EE_scaling_fig(::Type{T}, state::Vector{ET},fit::String) where {N, T <: BitStr{N}, ET <: Real}
     splitlis=Vector(1:N-1)
-    EElis=EE_PXP_state(N,splitlis,state)
+    EElis=EE_PXP_state(T,splitlis,state)
 
     if fit=="CC" 
         cent, fig=fitCCEntEntScal(EElis; mincut=1, pbc=true)
@@ -51,11 +51,10 @@ function EE_scaling_fig(N::Int64, state::Vector{T},fit::String) where {T <: Real
     return cent, fig
 end
 
-function Mutual_information(N::Int64, state::Vector{Float64}, subsystems::Tuple{Vector{Int64}, Vector{Int64}})
+function Mutual_information(::Type{T}, state::Vector{Float64}, subsystems::Tuple{Vector{Int64}, Vector{Int64}}) where {N, T <: BitStr{N}}
     A, B = subsystems
     # MI formula defined as: I(A:B) = S_A + S_B - S_AB
     # Calculate the reduced density matrices
-    T = BitStr{N, Int}
     ρ_A = rdm_PXP(T, A, state)
     ρ_B = rdm_PXP(T, B, state)
     ρ_AB = rdm_PXP(T, vcat(A,B), state)
@@ -69,10 +68,10 @@ function Mutual_information(N::Int64, state::Vector{Float64}, subsystems::Tuple{
     
 end
 
-function Tri_mutual_information(N::Int64, state::Vector{Float64}, subsystems::Tuple{Vector{Int64}, Vector{Int64}, Vector{Int64}}) 
+function Tri_mutual_information(::Type{T}, state::Vector{Float64}, subsystems::Tuple{Vector{Int64}, Vector{Int64}, Vector{Int64}}) where {N, T <: BitStr{N}}
     A, B, C = subsystems
     # TMI formula defined as: I(A:B:C) = S_A + S_B + S_C - S_AB - S_BC - S_AC + S_ABC
-    T = BitStr{N, Int}
+    
     @time begin 
     ρ_A = rdm_PXP(T, A, state)
     ρ_B = rdm_PXP(T, B, state)
@@ -122,14 +121,14 @@ function QFI(Ob::Matrix{Float64}, state::Vector{T}) where {T <: Real}
     return F_Q
 end
 
-function domain_wall(N::Int64,pbc::Bool=true) 
+function domain_wall(::Type{T}, pbc::Bool=true) where {N, T <: BitStr{N}}
     """
     :param N: Number of sites
     :return: domain_wall_density diagonal elements
     The eigenvectors of this operator are going from -N to N, increasing by 2, totally N+1 eigenvectors. Number of each eigenvalues is N choose k, where k is the number of domain walls when we consider total Hilbert space. Defined as sum_i Z_i =1/2 (-1)^(i+1) * Z_i, we aim for spin systems.(S_Z= 1/2 Pauli Z)
     """
     
-    basis = PXP_basis(BitStr{N, Int}, pbc)
+    basis = PXP_basis(T, pbc)
     l=length(basis)
     dw = zeros(l)
 
@@ -144,12 +143,12 @@ function domain_wall(N::Int64,pbc::Bool=true)
 end
 
 
-function particlenumber(N::Int64,pbc::Bool=true)
+function particlenumber(::Type{T},pbc::Bool=true) where {N, T <: BitStr{N}}
     """
     :param N: Number of sites
     :return: Particle number operator
     """
-    basis = PXP_basis(BitStr{N, Int}, pbc)
+    basis = PXP_basis(T, pbc)
     l=length(basis)
     P = zeros((l, l))
     for (idx, str) in enumerate(basis)

@@ -11,3 +11,12 @@ Profile.print(format=:flat, mincount=40)
 @btime iso_total2FSA(BitStr{N, Int})
 @btime iso_total2FSA(BitStr{N})
 # Have difference
+
+@btime PXP_Ham(BitStr{12, Int})
+
+@btime PXP_Ham2(12)
+
+@code_warntype PXP_Ham(BitStr{12, Int})
+@code_warntype PXP_Ham2(12)
+@btime PXP_basis(BitStr{16, Int})   
+@btime PXP_basis2(16)
