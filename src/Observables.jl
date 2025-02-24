@@ -210,3 +210,51 @@ function chiral(::Type{T}, pbc::Bool=true) where {N, T <:BitStr{N}}
 
     return C
 end
+
+function ergotropy_PXP_idx(::Type{T}, l::Int64, idx::Int64) where {N, T <: BitStr{N}}
+    HA=PXP_Ham(BitStr{l, Int},false)
+    sub_basis=PXP_basis(BitStr{l, Int},false)
+    energy, states= eigen(PXP_Ham(T))
+    subenergy, substates = eigen(HA)
+    
+    scar_state = states[:,idx]
+    subscarrho = rdm_PXP(T,collect(1:l),scar_state) 
+    GS_energy=tr(subscarrho*HA)
+
+    spectrum=eigvals(subscarrho)
+    sorted_spectrum=sort(spectrum, rev=true)
+    passive_energy=dot(sorted_spectrum, subenergy)
+
+    return GS_energy, subenergy[1], passive_energy
+end
+
+function ergotropy_PXP_state(::Type{T}, l::Int64, state::Vector{ET}) where {N, T <: BitStr{N}, ET}
+    HA=PXP_Ham(BitStr{l, Int},false)
+    sub_basis=PXP_basis(BitStr{l, Int},false)
+    subenergy, substates= eigen(HA)
+    subscarrho = rdm_PXP(T,collect(1:l),scar_state) 
+
+    GS_energy=tr(subscarrho*HA)
+    spectrum=eigvals(subscarrho)
+    sorted_spectrum=sort(spectrum, rev=true)
+    passive_energy=dot(sorted_spectrum, subenergy)
+
+    return GS_energy, subenergy[1], passive_energy
+end
+
+function ergotropy_PXP_idx_OBC(::Type{T}, l::Int64, idx::Int64) where {N, T <: BitStr{N}}
+    HA=PXP_Ham(BitStr{l, Int},false)
+    sub_basis=PXP_basis(BitStr{l, Int},false)
+    energy, states= eigen(PXP_Ham(T,false))
+    subenergy, substates= eigen(HA)
+
+    state=states[:,idx]
+    subrho = rdm_PXP(T, collect(1:l), state) 
+     
+    GS_energy=tr(subrho*HA)
+    spectrum=eigvals(subrho)
+    sorted_spectrum=sort(spectrum, rev=true)
+    passive_energy=dot(sorted_spectrum, subenergy)
+
+    return GS_energy, subenergy[1], passive_energy
+end
