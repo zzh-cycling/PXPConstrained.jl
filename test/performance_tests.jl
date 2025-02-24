@@ -6,3 +6,8 @@ using BitBasis, PXPConstrained
 @time rdm_PXP_K(BitStr{26, Int}, collect(1:13), ones(10462),0)
 Profile.print(format=:flat, mincount=40)
 @time rdm_PXP_K(BitStr{28, Int}, collect(1:14), ones(25415),0)
+
+
+@btime iso_total2FSA(BitStr{N, Int})
+@btime iso_total2FSA(BitStr{N})
+# Have difference

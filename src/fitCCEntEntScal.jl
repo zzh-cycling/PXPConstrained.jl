@@ -135,16 +135,13 @@ function fit_both(
 
     function fit_cc(SvN_list::Vector{Float64},mincut::Int=1,
         pbc::Bool=true)
-            # log of chord length / 6 for open boundary
         logChord(l, L) = @. log(sin(π * l /L))/6
-        # @. macro apply dot operation, make codes faster and less allocation. For example:
-        # f(x) = 3x.^2 + 4x + 7x.^3;
-        # fdot(x) = @. 3x^2 + 4x + 7x^3; # equivalent to 3 .* x.^2 .+ 4 .* x .+ 7 .* x.^3
+       
         L = length(SvN_list) + 1
 
         # fit scaling
         lm(x,p) = @. p[1] * x + p[2]
-        xdata = logChord([1:L-1;],L); #log.(sin.(π .* [1:L-1;] ./L))./6
+        xdata = logChord([1:L-1;],L); 
         fit = curve_fit(lm, xdata[mincut:L-mincut], SvN_list[mincut:L-mincut], [0.5, 0.0])
         fitparam = fit.param
         cent = fitparam[1]
@@ -204,30 +201,5 @@ function fit_both(
         #     plot!(subplot=2, xdata, ydata, lw=2,label=(@sprintf "c = %.2f ± %.2f" cent cent_err))
         # end
 
-    return cent, cent2, fig
-end
-
-function fitplot(
-    SvN_list::Vector{Float64},
-    SvN_list2::Vector{Float64},
-    fig,
-    err=0.0,
-    mincut::Int=1,
-    pbc::Bool=true,
-    )
-    """
-    Inherit the previous plot and add the new data
-    """
-    logChord(l, L) = @. log(sin(π * l /L))/6
-    linearGrowthDecay(l, L) = @. pagecurve(l,L)- 2^(pagecurve(l,L))/(2^(L-pagecurve(l,L))*2)
-    # plot scaling
-    xdata,cent,cent_err ,fitparam, fit=myfit(SvN_list, mincut, pbc)
-    xdata2,cent2, cent_err2,fitparam2, fit2=myfit2(SvN_list2, mincut, pbc)
-    L = length(SvN_list) + 1
-    fig=scatter!(fig,1:L-1, SvN_list, ylabel=L"S_{vN}", xlabel=L"l", frame=:box, yerror=err, label=false, lw=2, marker=:circle, xlims=(-1, L+1),color="red",markersize=6)
-    plot!(fig,1:L-1, fitparam[1] .* logChord([1:L-1;], L) .+ fitparam[2], label=false,color="red", linestyle=:dash)
-
-    scatter!(fig, 1:L-1, SvN_list2, ylabel=L"S_{vN}", xlabel=L"l", frame=:box, yerror=err, label=false, lw=2, marker=:circle, xlims=(-1, L+1),color=RGB(12/255, 159/255, 250/255),markersize=6)
-    plot!(fig, 1:L-1, fitparam2[1] .*  linearGrowthDecay([1:L-1;],L) .+ fitparam2[2], label=false, linestyle=:dash,color=RGB(12/255, 159/255, 250/255))
     return cent, cent2, fig
 end

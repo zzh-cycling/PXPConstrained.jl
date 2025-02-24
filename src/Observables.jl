@@ -13,7 +13,31 @@ function EE(subrm::Matrix{Float64})
      return EE
 end
 
-function EE_scaling_fig(::Type{T}, state::Vector{Float64},fit::String) where {N, T <:BitStr{N}}
+function EE_PXP_idx(N::Int64, splitlis::Vector{Int64}, idx::Int64) 
+    """
+    only calculate half the EE list
+    """
+    energy, states= eigen(PXP_Ham(BitStr{N, Int}))
+    idx_state=states[:,idx]
+    EE_lis=zeros(div(length(splitlis)+1,2))
+    for m in 1:div(length(splitlis)+1,2)
+        subidx=rdm_PXP(BitStr{N, Int}, collect(1:splitlis[m]), idx_state)
+        EE_lis[m]=EE(subidx)
+    end
+    EE_lis=[EE_lis; sort(EE_lis[1:div(length(splitlis)-1,2)],rev=true)]
+    return EE_lis
+end
+
+function EE_PXP_state(N::Int64,splitlis::Vector{Int64},state::Vector{ET}) where {ET <: Real}
+    EE_lis=zeros(length(splitlis))
+    for m in eachindex(EE_lis)
+        subscar=rdm_PXP(BitStr{N, Int},collect(1:splitlis[m]), state)
+        EE_lis[m]=EE(subscar)
+    end
+    return EE_lis
+end
+
+function EE_scaling_fig(N::Int64, state::Vector{T},fit::String) where {T <: Real}
     splitlis=Vector(1:N-1)
     EElis=EE_PXP_state(N,splitlis,state)
 
@@ -27,35 +51,11 @@ function EE_scaling_fig(::Type{T}, state::Vector{Float64},fit::String) where {N,
     return cent, fig
 end
 
-function EE_PXP_idx(::Type{T}, splitlis::Vector{Int64}, idx) where {N, T <:BitStr{N}}
-    """
-    only calculate half the EE list
-    """
-    energy, states= eigen(PXP_Ham(N))
-    idx_state=states[:,idx]
-    EE_lis=zeros(div(length(splitlis)+1,2))
-    for m in 1:div(length(splitlis)+1,2)
-        subidx=rdm_PXP(N,collect(1:splitlis[m]), idx_state)
-        EE_lis[m]=EE(subidx)
-    end
-    EE_lis=[EE_lis; sort(EE_lis[1:div(length(splitlis)-1,2)],rev=true)]
-    return EE_lis
-end
-
-function EE_PXP_state(::Type{T},splitlis::Vector{Int64},state::Vector{Float64}) where {N, T <:BitStr{N}}
-    EE_lis=zeros(length(splitlis))
-    for m in eachindex(EE_lis)
-        subscar=rdm_PXP(N,collect(1:splitlis[m]), state)
-        EE_lis[m]=EE(subscar)
-    end
-    return EE_lis
-end
-
-function Mutual_information(::Type{T}, state::Vector{Float64}, subsystems::Tuple{Vector{Int64}, Vector{Int64}}) where {N, T <:BitStr{N}}
+function Mutual_information(N::Int64, state::Vector{Float64}, subsystems::Tuple{Vector{Int64}, Vector{Int64}})
     A, B = subsystems
     # MI formula defined as: I(A:B) = S_A + S_B - S_AB
     # Calculate the reduced density matrices
-    
+    T = BitStr{N, Int}
     ρ_A = rdm_PXP(T, A, state)
     ρ_B = rdm_PXP(T, B, state)
     ρ_AB = rdm_PXP(T, vcat(A,B), state)
@@ -69,9 +69,10 @@ function Mutual_information(::Type{T}, state::Vector{Float64}, subsystems::Tuple
     
 end
 
-function Tri_mutual_information(::Type{T}, state::Vector{Float64}, subsystems::Tuple{Vector{Int64}, Vector{Int64}, Vector{Int64}}) where {N, T <:BitStr{N}}
+function Tri_mutual_information(N::Int64, state::Vector{Float64}, subsystems::Tuple{Vector{Int64}, Vector{Int64}, Vector{Int64}}) 
     A, B, C = subsystems
     # TMI formula defined as: I(A:B:C) = S_A + S_B + S_C - S_AB - S_BC - S_AC + S_ABC
+    T = BitStr{N, Int}
     @time begin 
     ρ_A = rdm_PXP(T, A, state)
     ρ_B = rdm_PXP(T, B, state)
@@ -101,85 +102,58 @@ function Tri_mutual_information(::Type{T}, state::Vector{Float64}, subsystems::T
     return I_ABC
 end
 
-function QFI_dwd(::Type{T}, Ob::Vector{Float64}, state::Vector{Float64}) where {N, T <:BitStr{N}}
-    
+function QFI(Ob::Vector{Float64}, state::Vector{T}) where {T <: Real}
+    # Calculate the quantum fisher information, espeically for diagonal operators.
     DeltaOb=state'*(Ob.^2 .*state)-(state'*(Ob.*state))^2
     # Calculate the Quantum Fisher Information
     # For spin 1/2, w/o 4
-    F_Q = DeltaOb
+    F_Q = 4*DeltaOb
 
     return F_Q
 end
 
-function Quantumfisherinfo(::Type{T}, Ob::Matrix{Float64}, state::Vector{Float64}) where {N, T <:BitStr{N}}
+function QFI(Ob::Matrix{Float64}, state::Vector{T}) where {T <: Real}
     rho=state*state'
     DeltaOb=tr(rho*Ob^2)-tr(rho*Ob)^2
     # Calculate the Quantum Fisher Information
     # For spin 1/2, w/o 4
-    F_Q = DeltaOb
+    F_Q = 4*DeltaOb
 
     return F_Q
 end
 
-function domain_wall(::Type{T},pbc::Bool=true) where {N, T <:BitStr{N}}
+function domain_wall(N::Int64,pbc::Bool=true) 
     """
     :param N: Number of sites
-    :return: domain_wall_density operator
-    The eigenvectors of this operator are going from -N to N, increasing by 2, totally N+1 eigenvectors. Number of each eigenvalues is N choose k, where k is the number of domain walls when we consider total Hilbert space. Defined as sum_i Z_i = (-1)^(i+1) * Z_i.
+    :return: domain_wall_density diagonal elements
+    The eigenvectors of this operator are going from -N to N, increasing by 2, totally N+1 eigenvectors. Number of each eigenvalues is N choose k, where k is the number of domain walls when we consider total Hilbert space. Defined as sum_i Z_i =1/2 (-1)^(i+1) * Z_i, we aim for spin systems.(S_Z= 1/2 Pauli Z)
     """
     
-    basis = PXP_basis(T,pbc)
+    basis = PXP_basis(BitStr{N, Int}, pbc)
     l=length(basis)
-    Dwd = zeros((l, l))
+    dw = zeros(l)
 
-    function Z_i(str::String)
-        return [c == '0' ? 1 : -1 for c in str]
-    end
-
-    function sum_Z_i(str::String)
-        Z = Z_i(str)
-        return sum((-1)^(i+1) * Z[i] for i in 1:length(Z))
-    end
-
+    mask = bmask(BitStr{N, Int}, collect(2:2:N)...)
     for (idx, str) in enumerate(basis)
-        Dwd[idx, idx] = sum_Z_i(str)
+        masked_str = flip(str, mask)
+        Zi=sum([masked_str...].-1/2)
+        dw[idx] = Zi
     end
 
-    return Dwd
+    return dw
 end
 
-function domain_wall_density(::Type{T},pbc::Bool=true) where {N, T <:BitStr{N}}
-    
-    basis = PXP_basis(T,pbc)
-    l=length(basis)
-    Dwd = zeros((l, l))
 
-    function Z_i(str::String)
-        return [c == '0' ? 1 : -1 for c in str]
-    end
-
-    function sum_Z_i(str::String)
-        Z = Z_i(str)
-        return sum((-1)^(i+1) * Z[i] for i in 1:length(Z))
-    end
-
-    for (idx, str) in enumerate(basis)
-        Dwd[idx, idx] = sum_Z_i(str)./N
-    end
-
-    return Dwd
-end
-
-function particlenumber(::Type{T},pbc::Bool=true) where {N, T <:BitStr{N}}
+function particlenumber(N::Int64,pbc::Bool=true)
     """
     :param N: Number of sites
     :return: Particle number operator
     """
-    basis = PXP_basis(N,pbc)
+    basis = PXP_basis(BitStr{N, Int}, pbc)
     l=length(basis)
     P = zeros((l, l))
     for (idx, str) in enumerate(basis)
-        P[idx, idx] = count_ones(parse(Int, str, base=2))
+        P[idx, idx] = count_ones(str)
     end
 
     return P
