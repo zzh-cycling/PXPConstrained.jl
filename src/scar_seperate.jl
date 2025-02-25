@@ -221,10 +221,82 @@ function sep_scar_exact(::Type{T}, energy::Vector{Float64}, states::Matrix{Float
     exact_scar_prime/=norm(exact_scar_prime)
 
     Q, R = qr(hcat(exact_scar,exact_scar_prime,states[:,indices]))
-    # Essentially equivalent to the gram_schmidt function
-    thermal_ensemble=Q[:,3:end]
+    # Noting that not full rank matrix Q needs to take part.
+    l=size(R)[1]
+    thermal_ensemble=Q[:,3:l]
+
+    return exact_scar, exact_scar_prime, thermal_ensemble
+    
+end
 
 
-    return exact_scar,exact_scar_prime,thermal_ensemble
+function sep_scar_exact_translation(::Type{T}, energy::Vector{Float64}, states::Matrix{Float64}) where {N, T <: BitStr{N}}
+    indices = [index for (index, value) in enumerate(energy) if abs(value) <= 1e-8]
+
+    Trans = translation_matrix(T)
+    scar=gene_scar(N)
+    scar1=storage(scar)
+
+    basis= PXP_basis(T)
+    basis_int = [i.buf for i in basis]
+    scar1=scar1[basis_int.+1]
+    scar1/=norm(scar1)
+
+    scar2=T*scar1
+    scar2/=norm(scar2)
+    
+    exact_scar= scar1+scar2
+    exact_scar/=norm(exact_scar)
+
+    exact_scar_prime=scar1-scar2
+    exact_scar_prime/=norm(exact_scar_prime)
+
+    
+    Q, R = qr(hcat(exact_scar,exact_scar_prime,states[:,indices]))
+    l=size(R)[1]
+    thermal_ensemble=Q[:,3:l]
+
+    total_thek0=Vector{Float64}[]
+    total_thekpi=Vector{Float64}[]
+    l=size(thermal_ensemble)[1]
+
+    ll=length(basis_int)
+    T0=I(ll)
+    Tpi=I(ll)
+
+    @time begin
+    T_power = I(ll) 
+    # 计算 T 的幂并同时更新 T0 和 Tpi
+    for i in 1:(N-1)
+        T_power *= Trans  # 计算 T^i
+        T0 += T_power
+        Tpi += (-1)^i * T_power
+    end
+    end
+    myprint(stdout,"T0 and Tpi complete")
+
+
+    for i in 1:size(thermal_ensemble)[2]
+        st=thermal_ensemble[:,i]
+        if isapprox(st'*Trans*st, 1, atol=1e-6) 
+            push!(total_thek0, st)
+        elseif isapprox(st'*Trans*st, -1, atol=1e-6)
+            push!(total_thekpi, st)
+        else
+            # stp,stm=vec2k0pi(N,st)
+            stp=T0*st
+            stp/=norm(stp)
+            stm=Tpi*st
+            stm/=norm(stm)
+            push!(total_thek0, stp)
+            push!(total_thekpi, stm)
+        end
+        
+    end
+
+    total_thek0 = hcat(total_thek0...)
+    total_thekpi = hcat(total_thekpi...)
+
+    return exact_scar, exact_scar_prime, total_thek0,total_thekpi
     
 end
