@@ -213,7 +213,7 @@ end
 
 function iso_total2K(::Type{T}, k::Int64) where {N, T <: BitStr{N}}
     """
-    Function to map the total basis to the K space basis
+    Function to map the total basis to the K space basis, actually is the isometry, defined as W'*W=I, W*W'=P, P^2=P
     """
     basis = PXP_basis(T)
 
@@ -527,8 +527,8 @@ function PXP_MSS_Ham(::Type{T}, k::Int, inv::Int64=1) where {N, T <: BitStr{N}}
     end
 end
 
-function wf_time_evolution(psi0::AbstractVector{T}, times::Vector{Float64}, energy::Vector{Float64},states::Matrix{Float64}) where {T <: Real}
-    wflis=Vector{AbstractVector{T}}(undef,length(times))
+function wf_time_evolution(psi0::Vector{T}, times::Vector{Float64}, energy::Vector{Float64},states::Matrix{Float64}) where {T <: Real}
+    wflis=Vector{Vector{ComplexF64}}(undef,length(times))
     for (i,t) in enumerate(times)
         wf=similar(psi0)
         for (j, state) in enumerate(eachcol(states))

@@ -177,18 +177,18 @@ function gene_scar(N::Int64)
     # Exactly equal to the translated scar state T*scar1
 end
 
-function vec2k0pi(N::Int64, state::Vector{Float64})
-    basis = PXP_basis(N)
+function vec2k0pi(::Type{T}, state::Vector{ET}) where {N, T <: BitStr{N}, ET}
+    basis = PXP_basis(T)
     l=length(basis)
-    T=translation_matrix(N)
+    Trans=translation_matrix(T)
     op1=I(l)
     op2=I(l)
 
 
     T_power = I(l)  
-    # 计算 T 的幂并同时更新 op1 和 op2
+    # 计算 Trans 的幂并同时更新 op1 和 op2
     for i in 1:(N-1)
-        T_power *= T  # 计算 T^i
+        T_power *= Trans  # 计算 T^i
         op1 += T_power
         op2 += (-1)^i * T_power
     end

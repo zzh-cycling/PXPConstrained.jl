@@ -1,5 +1,5 @@
 
-function EE(subrm::Matrix{Float64})
+function ee(subrm::Matrix{Float64})
     #  subrm=qi.ptrace(state*state',[2 for i in 1:N],[i for i in l+1:N])
      spectrum=eigvals(subrm)
      EE=0
@@ -13,7 +13,7 @@ function EE(subrm::Matrix{Float64})
      return EE
 end
 
-function EE_PXP_idx(::Type{T}, splitlis::Vector{Int64}, idx::Int64)  where {N, T <: BitStr{N}}
+function ee_PXP_idx(::Type{T}, splitlis::Vector{Int64}, idx::Int64)  where {N, T <: BitStr{N}}
     """
     only calculate half the EE list
     """
@@ -22,24 +22,24 @@ function EE_PXP_idx(::Type{T}, splitlis::Vector{Int64}, idx::Int64)  where {N, T
     EE_lis=zeros(div(length(splitlis)+1,2))
     for m in 1:div(length(splitlis)+1,2)
         subidx=rdm_PXP(BitStr{N, Int}, collect(1:splitlis[m]), idx_state)
-        EE_lis[m]=EE(subidx)
+        EE_lis[m]=ee(subidx)
     end
     EE_lis=[EE_lis; sort(EE_lis[1:div(length(splitlis)-1,2)],rev=true)]
     return EE_lis
 end
 
-function EE_PXP_state(::Type{T},splitlis::Vector{Int64},state::Vector{ET}) where {N, T <: BitStr{N}, ET <: Real}
+function ee_PXP_state(::Type{T},splitlis::Vector{Int64},state::Vector{ET}) where {N, T <: BitStr{N}, ET <: Real}
     EE_lis=zeros(length(splitlis))
     for m in eachindex(EE_lis)
         subscar=rdm_PXP(T, collect(1:splitlis[m]), state)
-        EE_lis[m]=EE(subscar)
+        EE_lis[m]=ee(subscar)
     end
     return EE_lis
 end
 
-function EE_scaling_fig(::Type{T}, state::Vector{ET},fit::String) where {N, T <: BitStr{N}, ET <: Real}
+function ee_scaling_fig(::Type{T}, state::Vector{ET},fit::String) where {N, T <: BitStr{N}, ET <: Real}
     splitlis=Vector(1:N-1)
-    EElis=EE_PXP_state(T,splitlis,state)
+    EElis=ee_PXP_state(T,splitlis,state)
 
     if fit=="CC" 
         cent, fig=fitCCEntEntScal(EElis; mincut=1, pbc=true)
@@ -51,7 +51,7 @@ function EE_scaling_fig(::Type{T}, state::Vector{ET},fit::String) where {N, T <:
     return cent, fig
 end
 
-function Mutual_information(::Type{T}, state::Vector{Float64}, subsystems::Tuple{Vector{Int64}, Vector{Int64}}) where {N, T <: BitStr{N}}
+function mutual_information(::Type{T}, state::Vector{Float64}, subsystems::Tuple{Vector{Int64}, Vector{Int64}}) where {N, T <: BitStr{N}}
     A, B = subsystems
     # MI formula defined as: I(A:B) = S_A + S_B - S_AB
     # Calculate the reduced density matrices
@@ -59,16 +59,16 @@ function Mutual_information(::Type{T}, state::Vector{Float64}, subsystems::Tuple
     ρ_B = rdm_PXP(T, B, state)
     ρ_AB = rdm_PXP(T, vcat(A,B), state)
     # Calculate the Von Neumann entropies
-    S_A = EE(ρ_A)
-    S_B = EE(ρ_B)
-    S_AB = EE(ρ_AB)
+    S_A = ee(ρ_A)
+    S_B = ee(ρ_B)
+    S_AB = ee(ρ_AB)
     # Calculate the mutual information
     I_AB = S_A + S_B - S_AB
     return I_AB
     
 end
 
-function Tri_mutual_information(::Type{T}, state::Vector{Float64}, subsystems::Tuple{Vector{Int64}, Vector{Int64}, Vector{Int64}}) where {N, T <: BitStr{N}}
+function tri_mutual_information(::Type{T}, state::Vector{Float64}, subsystems::Tuple{Vector{Int64}, Vector{Int64}, Vector{Int64}}) where {N, T <: BitStr{N}}
     A, B, C = subsystems
     # TMI formula defined as: I(A:B:C) = S_A + S_B + S_C - S_AB - S_BC - S_AC + S_ABC
     
@@ -87,13 +87,13 @@ function Tri_mutual_information(::Type{T}, state::Vector{Float64}, subsystems::T
     
     # Calculate the Von Neumann entropies
     
-    S_A = EE(ρ_A)
-    S_B = EE(ρ_B)
-    S_C = EE(ρ_C)
-    S_AB = EE(ρ_AB)
-    S_BC = EE(ρ_BC)
-    S_AC = EE(ρ_AC)
-    S_ABC = EE(ρ_ABC)
+    S_A = ee(ρ_A)
+    S_B = ee(ρ_B)
+    S_C = ee(ρ_C)
+    S_AB = ee(ρ_AB)
+    S_BC = ee(ρ_BC)
+    S_AC = ee(ρ_AC)
+    S_ABC = ee(ρ_ABC)
 
     # Calculate the mutual information
     I_ABC = S_A + S_B + S_C - S_AB - S_BC - S_AC + S_ABC
@@ -101,7 +101,7 @@ function Tri_mutual_information(::Type{T}, state::Vector{Float64}, subsystems::T
     return I_ABC
 end
 
-function QFI(Ob::Vector{Float64}, state::Vector{T}) where {T <: Real}
+function qfi(Ob::Vector{Float64}, state::Vector{T}) where {T <: Real}
     # Calculate the quantum fisher information, espeically for diagonal operators.
     DeltaOb=state'*(Ob.^2 .*state)-(state'*(Ob.*state))^2
     # Calculate the Quantum Fisher Information
@@ -111,7 +111,7 @@ function QFI(Ob::Vector{Float64}, state::Vector{T}) where {T <: Real}
     return F_Q
 end
 
-function QFI(Ob::Matrix{Float64}, state::Vector{T}) where {T <: Real}
+function qfi(Ob::Matrix{Float64}, state::Vector{T}) where {T <: Real}
     rho=state*state'
     DeltaOb=tr(rho*Ob^2)-tr(rho*Ob)^2
     # Calculate the Quantum Fisher Information
