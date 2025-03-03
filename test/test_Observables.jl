@@ -1,6 +1,7 @@
 using Test
 using PXPConstrained, BitBasis 
 using LinearAlgebra
+using Yao: mutual_information as mi
 
 @testset "Observables" begin
     scar_indexlis16=[1, 2, 9, 27, 82, 202, 408, 728, 1075, 1480, 1800, 2006, 2126, 2181, 2199, 2206, 2207];

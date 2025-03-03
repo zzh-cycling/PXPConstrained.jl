@@ -2,6 +2,7 @@ using Test
 using PXPConstrained, BitBasis 
 using ITensors
 using Yao
+using Yao: mutual_information as mi
 ITensors.set_warn_order(60)
 
 function translation_operator(n::Int, N::Int)
