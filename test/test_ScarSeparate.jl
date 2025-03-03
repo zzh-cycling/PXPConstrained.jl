@@ -1,8 +1,7 @@
 using Test
 using PXPConstrained, BitBasis 
 using ITensors
-using Yao
-using Yao: mutual_information as mi
+using Yao: arrayreg, density_matrix, von_neumann_entropy, expect, matblock
 ITensors.set_warn_order(60)
 
 function translation_operator(n::Int, N::Int)
@@ -47,9 +46,9 @@ function test_gene_scar(::Type{T}) where {N, T <: BitStr{N}}
 
     rhok0 = density_matrix(scark0, 1:div(N,2))
     rhokpi = density_matrix(scarkpi, 1:div(N,2))
-    sk0=Yao.von_neumann_entropy(rhok0)
-    skpi=Yao.von_neumann_entropy(rhokpi)
-    c=Yao.expect(matblock(Trans), scark0)
+    sk0=von_neumann_entropy(rhok0)
+    skpi=von_neumann_entropy(rhokpi)
+    c=expect(matblock(Trans), scark0)
 
 
     myscar1=scar1[basis_int.+1]
