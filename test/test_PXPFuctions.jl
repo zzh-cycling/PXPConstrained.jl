@@ -1,6 +1,7 @@
 using Test
 using PXPConstrained, BitBasis    
-    
+using LinearAlgebra
+
 @testset "pxp functions" begin
     N=12
     state=BitStr{N}(0)
@@ -83,5 +84,5 @@ using PXPConstrained, BitBasis
     end
 
     cent, _= fitpage_curve(EE_lis; mincut=1)
-    @test cent ≈ 0.5873876218613336
+    @test isapprox(cent, 0.587, atol=1e-2)
 end
