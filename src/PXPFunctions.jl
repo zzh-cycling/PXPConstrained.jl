@@ -171,6 +171,59 @@ function rdm_PXP_K(::Type{T}, subsystems::Vector{Int64}, state::Vector{Float64},
     return reduced_dm
 end
 
+function rdm_new(::Type{T}, l::Int64, state::Vector{ET}, pbc::Bool=true) where {N, T <: BitStr{N}, ET}
+    basis = PXP_basis(T, pbc)
+    @assert length(basis) == length(state) "basis and state must have the same length"
+
+    sorted_basis = sort(basis, by = x -> x & (1<< l -1))
+
+    # Keep track of indices where the key changes
+    result_indices = Int[]
+    current_key = -1
+    
+    for (idx, i) in enumerate(sorted_basis)
+        key = i & ((1 << l) - 1)  # Get lower l bits
+        
+        if key != current_key
+            push!(result_indices, idx)
+            current_key = key
+        end
+    end
+    
+    # Add the final index to get complete ranges
+    push!(result_indices, length(sorted_basis) + 1)
+    
+    # Create ranges for each block with the same key
+    ranges = [result_indices[i]:(result_indices[i+1]-1) for i in 1:(length(result_indices)-1)]
+    # Create reduced density matrix
+    reduced_basis = PXP_basis(BitStr{l}, false)
+    
+    len = length(reduced_basis)
+    
+    # Initialize the reduced density matrix
+    reduced_dm = zeros(ET, (len, len))
+    
+    for r in ranges
+        if length(r) == len
+            st = state[r]
+        else
+            # Get the left bits (subsystem states)
+            left_states = [BitStr{l}((b >> (N - l)).buf) for b in sorted_basis[r]]
+            
+            # Get indices in the reduced basis
+            indices = [searchsortedfirst(reduced_basis, s) for s in left_states]
+            st = zeros(ET, len)
+            st[indices] .= state[r]
+        end
+        
+        
+        reduced_dm += st * st'
+    end
+    
+    return reduced_dm
+end
+
+
 function iso_K2MSS(::Type{T}, k::Int64, inv::Int64=1) where {N, T <: BitStr{N}}
     """
     Function to map the MSS basis to the K space basis
