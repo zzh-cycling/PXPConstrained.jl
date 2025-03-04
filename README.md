@@ -29,7 +29,7 @@ PXPConstrained is a a powerful exact numerical calculation package using Exact D
 ## Installation
 
 ```julia
-pkg> add https://github.com/zzh-cycling/PXPConstrained.git
+pkg> add https://github.com/zzh-cycling/PXPConstrained.jl.git
 ```
 
 ## Documentation
