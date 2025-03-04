@@ -6,7 +6,8 @@ using Yao: mutual_information as mi
 @testset "Observables" begin
     scar_indexlis16=[1, 2, 9, 27, 82, 202, 408, 728, 1075, 1480, 1800, 2006, 2126, 2181, 2199, 2206, 2207];
     @test isapprox(ee(ones((100,100))),-460.51701859880916)
-
+    
+    
     N=12
     T = BitStr{N, Int}
     H = PXP_Ham(T)
@@ -14,6 +15,12 @@ using Yao: mutual_information as mi
     state=states[:,1]
     splitlis=Vector(1:N-1)
     @test isapprox(fitCCEntEntScal(ee_PXP_state(T,splitlis,state); mincut=1, pbc=true)[1], 0.19684135629232746)
+    @test isapprox(fitCCEntEntScal(ee_PXP_idx(T,splitlis,1); mincut=1, pbc=true)[1], 0.19684135629232746)
+
+    cent_cc, _ = ee_PXP_scaling_fig(T, states[:,1], "CC")
+    cent_page, _ = ee_PXP_scaling_fig(T, states[:,3], "Page")
+    @test cent_cc == 0.19684135629232746 
+    @test cent_page == 0.19719086451346607
 
     A, B, C = collect(1:3), collect(4:6), collect(7:9)
     scar, thermal = sep_scar_FSA(T, energy, states)
@@ -32,6 +39,9 @@ using Yao: mutual_information as mi
     @test isapprox(qfi(particlenumber(T), z2state),0)
     @test diag(P)==[0.0, 1.0, 1.0, 1.0, 2.0, 1.0, 2.0]
     
+    vals, vecs = eigen(on_siten(T,1))
+    @test sum(vals) == 89.0
+
     vals, vecs= eigen(PXP_Ham(BitStr{16, Int}))
 
     @test isapprox(vals[728], -1.34002, atol=1e-6)
@@ -53,4 +63,17 @@ using Yao: mutual_information as mi
     @test isapprox(qfi_408, 7.6411086, atol=1e-6)
     @test isapprox(qfi_202, 7.1952766, atol=1e-6)
     @test isapprox(qfi_82, 6.55122, atol=1e-6)
+
+    GS_energy, subenergy, passive_energy = ergotropy_PXP_state(BitStr{16, Int}, 8, vecs[:,1074])
+    W = (GS_energy - passive_energy)/16
+    @test isapprox(W, 0.16915174104683417, atol=1e-6)
+
+    GS_energy, subenergy, passive_energy = ergotropy_PXP_idx(BitStr{16, Int}, 8, 1074)
+    W = (GS_energy - passive_energy)/16
+    @test isapprox(W, 0.16915174104683417, atol=1e-6)
+
+    GS_energy, subenergy, passive_energy = ergotropy_PXP_idx_OBC(BitStr{16, Int}, 8, 1300)
+    W = (GS_energy - passive_energy)/16
+    @test isapprox(W, 0.16076624524701522, atol=1e-6)
 end
+

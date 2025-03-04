@@ -31,13 +31,13 @@ end
 function ee_PXP_state(::Type{T},splitlis::Vector{Int64},state::Vector{ET}) where {N, T <: BitStr{N}, ET <: Real}
     EE_lis=zeros(length(splitlis))
     for m in eachindex(EE_lis)
-        subscar=rdm_PXP(T, collect(1:splitlis[m]), state)
-        EE_lis[m]=ee(subscar)
+        subrho=rdm_PXP(T, collect(1:splitlis[m]), state)
+        EE_lis[m]=ee(subrho)
     end
     return EE_lis
 end
 
-function ee_scaling_fig(::Type{T}, state::Vector{ET},fit::String) where {N, T <: BitStr{N}, ET <: Real}
+function ee_PXP_scaling_fig(::Type{T}, state::Vector{ET},fit::String) where {N, T <: BitStr{N}, ET <: Real}
     splitlis=Vector(1:N-1)
     EElis=ee_PXP_state(T,splitlis,state)
 
@@ -164,52 +164,17 @@ function on_siten(::Type{T}, i::Int64,pbc::Bool=true)  where {N, T <:BitStr{N}}
     :param N: Number of sites
     :return: Particle number operator
     """
-    basis  = PXP_basis(N,pbc)
+    basis  = PXP_basis(T,pbc)
     l=length(basis)
     P = zeros((l, l))
     for (idx, str) in enumerate(basis)
-        P[idx, idx] += (parse(Int, str[i], base=2))
+        P[idx, idx] += str[N+1-i]
     end
 
     return P
     
 end
 
-function swap_bits(bitstring::String)
-    # 将比特字符串转换为字符数组
-    bits = collect(bitstring)
-    # 获取长度
-    n = length(bits)
-    
-    # 创建一个新的数组来存储调换后的结果
-    swapped_bits = copy(bits)
-    
-    # 遍历每两个元素进行调换
-    for i in 1:2:n-1
-        swapped_bits[i], swapped_bits[i+1] = swapped_bits[i+1], swapped_bits[i]
-    end
-    
-    # 将字符数组转换回字符串并返回
-    return String(swapped_bits)
-end
-
-function chiral(::Type{T}, pbc::Bool=true) where {N, T <:BitStr{N}}
-    """
-    :param N: Number of sites
-    :return: Chiral operator
-    N=6 found no index.
-    """
-    basis  = PXP_basis(N,pbc)
-    l=length(basis)
-    C = zeros((l, l))
-    for (idx, str) in enumerate(basis)
-        m=parse(Int, swap_bits(str), base=2)
-        index=findfirst(x->x==m,basis)
-        C[idx, index] +=1
-    end
-
-    return C
-end
 
 function ergotropy_PXP_idx(::Type{T}, l::Int64, idx::Int64) where {N, T <: BitStr{N}}
     HA=PXP_Ham(BitStr{l, Int},false)
@@ -217,11 +182,11 @@ function ergotropy_PXP_idx(::Type{T}, l::Int64, idx::Int64) where {N, T <: BitSt
     energy, states= eigen(PXP_Ham(T))
     subenergy, substates = eigen(HA)
     
-    scar_state = states[:,idx]
-    subscarrho = rdm_PXP(T,collect(1:l),scar_state) 
-    GS_energy=tr(subscarrho*HA)
+    state = states[:,idx]
+    subrho = rdm_PXP(T,collect(1:l), state) 
+    GS_energy=tr(subrho*HA)
 
-    spectrum=eigvals(subscarrho)
+    spectrum=eigvals(subrho)
     sorted_spectrum=sort(spectrum, rev=true)
     passive_energy=dot(sorted_spectrum, subenergy)
 
@@ -232,10 +197,10 @@ function ergotropy_PXP_state(::Type{T}, l::Int64, state::Vector{ET}) where {N, T
     HA=PXP_Ham(BitStr{l, Int},false)
     sub_basis=PXP_basis(BitStr{l, Int},false)
     subenergy, substates= eigen(HA)
-    subscarrho = rdm_PXP(T,collect(1:l),scar_state) 
+    subrho = rdm_PXP(T,collect(1:l), state) 
 
-    GS_energy=tr(subscarrho*HA)
-    spectrum=eigvals(subscarrho)
+    GS_energy=tr(subrho*HA)
+    spectrum=eigvals(subrho)
     sorted_spectrum=sort(spectrum, rev=true)
     passive_energy=dot(sorted_spectrum, subenergy)
 
@@ -249,7 +214,7 @@ function ergotropy_PXP_idx_OBC(::Type{T}, l::Int64, idx::Int64) where {N, T <: B
     subenergy, substates= eigen(HA)
 
     state=states[:,idx]
-    subrho = rdm_PXP(T, collect(1:l), state) 
+    subrho = rdm_PXP(T, collect(1:l), state, false) 
      
     GS_energy=tr(subrho*HA)
     spectrum=eigvals(subrho)

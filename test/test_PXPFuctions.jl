@@ -12,8 +12,14 @@ using PXPConstrained, BitBasis
     basis = PXP_basis(BitStr{N, Int})
     @test length(basis) == 322
 
+    basis_obc = PXP_basis(BitStr{N, Int}, false)
+    @test length(basis_obc) == 377
+
     res = actingH_PXP(BitStr{N, Int}, state)
     @test length(res) == 12
+
+    res_obc = actingH_PXP(BitStr{N, Int}, state,false)
+    @test length(res_obc) == 12
 
     h = PXP_Ham(BitStr{N, Int})
     @test size(h) == (322, 322)
@@ -40,5 +46,42 @@ using PXPConstrained, BitBasis
     Inv=inversion_matrix(BitStr{N, Int})
     @test isapprox(Inv^2, I(size(Inv)[1]))
 
+    MSS_basis = PXP_MSS_basis(BitStr{N, Int}, 0)[1]
+    @test length(MSS_basis) == 26
+    @test length(PXP_MSS_basis(BitStr{8, Int}, 0)[1]) == length(PXP_K_basis(BitStr{8, Int}, 0)[1])
+
+    H_MSS = PXP_MSS_Ham(BitStr{N, Int}, 0)
+    MSS_vals, MSS_vecs = eigen(H_MSS)
+    @test isapprox(reverse(MSS_vals) .+ MSS_vals, zeros(26), atol=1e-6)
+
+    @test length(PXP_MSS_basis(BitStr{N, Int}, 0)[1]) + length(PXP_MSS_basis(BitStr{N, Int}, 0, -1)[1]) == length(PXP_K_basis(BitStr{N, Int}, 0)[1])
+    H_MSSminv = PXP_MSS_Ham(BitStr{N, Int}, 0, -1)
+    MSSminv_vals, MSSminv_vecs = eigen(H_MSSminv)
+    @test MSSminv_vals[3] == 0.0
+
+    map_K2MSS = iso_K2MSS(BitStr{N, Int},0)
+    map_K2MSSminv = iso_K2MSS(BitStr{N, Int},0, -1)
+    @test size(map_K2MSS) == (31, 26)
+    @test map_K2MSS'*map_K2MSS ≈ I(26)
+    @test size(map_K2MSSminv) == (31, 5)
+    @test map_K2MSSminv'*map_K2MSSminv ≈ I(5)
+
+    map_total2MSS = iso_total2MSS(BitStr{N, Int},0)
+    @test size(map_total2MSS) == (322, 26)
+    @test map_total2MSS'*map_total2MSS ≈ I(26)
     # map_idx_MSS=iso_total2MSS(BitStr{12, Int},0)
+
+    MSS_vec=MSS_vecs[:,12]
+    rdm_MSS = rdm_PXP_MSS(BitStr{N, Int}, collect(1:6), MSS_vec,0)
+    @test size(rdm_MSS) == (21, 21) == (length(PXP_basis(BitStr{6, Int}, false)) ,length(PXP_basis(BitStr{6, Int}, false)))
+
+    splitlis = collect(1:N-1)
+    EE_lis=zeros(length(splitlis))
+    for m in eachindex(EE_lis)
+        subrho=rdm_PXP_MSS(BitStr{N, Int}, collect(1:splitlis[m]), MSS_vec, 0)
+        EE_lis[m]=ee(subrho)
+    end
+
+    cent, _= fitpage_curve(EE_lis; mincut=1)
+    @test cent ≈ 0.5873876218613336
 end

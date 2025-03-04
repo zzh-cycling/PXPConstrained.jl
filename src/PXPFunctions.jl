@@ -85,91 +85,16 @@ function PXP_Ham(::Type{T}, pbc::Bool=true) where {N, T <: BitStr{N}}
     return H
 end
 
-function find_common_elements(list1, list2)
-    # Find common elements in two lists
-    common_elements = Set(list1) ∩ Set(list2)
-    indices1 = findall(x -> x in common_elements, list1)
-    indices2 = findall(x -> x in common_elements, list2)
-    return indices1, indices2
-end
-
-function reduced_dm_PXP(::Type{T}, l::Int64, state::Vector{ET}) where {N, T <: BitStr{N}, ET}
-    # At least faster than tn contraction, and idea is similar to the above function
-    """
-    Function to compute a reduced density matrix out of a given wave function. Its principle is to divide the system into left and right two parts, and use formula rho_reduced=sum_k I * <k|rho|k> * I, then compare how many states in the left part which are the same, while the right part is still the same.
-    """
-    basis=PXP_basis(T)
-    left_sys=[readbit(i, l+1:N...) for i in basis]
-    right_sys=[readbit(i, 1:l...) for i in basis]
-    m=length(left_sys)
-    
-    # Here we use a dictionary to store the category of left part of the basis, which is the basis of subsystem.
-    sub_basis = Dict{BitStr{N, Int}, Vector{BitStr{N, Int}}}()
-
-    for i in 1:m
-        string= left_sys[i]
-        if haskey(sub_basis, string)
-            push!(sub_basis[string], i)
-        else
-            sub_basis[string] = [i]
-        end
-    end
-    """
-    For example, if we have a basis of 4 qubits, then sub_basis is like
-    Dict{DitStr{2, 4, Int64}, Vector{DitStr{2, 4, Int64}}} with 3 entries:
-    0000 ₍₂₎ => [0001 ₍₂₎, 0010 ₍₂₎, 0011 ₍₂₎]
-    0010 ₍₂₎ => [0110 ₍₂₎, 0111 ₍₂₎]
-    0001 ₍₂₎ => [0100 ₍₂₎, 0101 ₍₂₎]
-
-    ordered_sub_basis is
-    3-element Vector{DitStr{2, 4, Int64}}:
-    0000 ₍₂₎
-    0001 ₍₂₎
-    0010 ₍₂₎
-
-    3-element Vector{Vector{Int64}}:
-    [1, 2, 3]
-    [4, 5]
-    [6, 7]
-    """
-
-    # Sort the sub_basis in natural order, and obtain the corresponding index in PXP_basis of sub_basis
-    ordered_sub_basis = sort(collect(keys(sub_basis)), by = x -> x)
-    sub_basis_index=[Int.(sub_basis[k]) for k in ordered_sub_basis]
-    size=length(ordered_sub_basis)
-
-    # for given basis of subsystem, we first obtain which state in total system will give the target subsystem basis.
-    reduced_dm=zeros((size,size))
-    for i in 1:size
-        for j in i:size
-            row=right_sys[sub_basis_index[i]]
-            column=right_sys[sub_basis_index[j]]
-            idx1,idx2=find_common_elements(row,column)
-            """
-            Actually, in i,j=1,2 case, basis[index1],basis[index2]=(["0000", "0001"], ["0100", "0101"]), row is right part of |a> will give "00" for k <k| * I|a>, column is right part of |a> will give "01" for k <a|I * |k>, find_common_elements is try to keep k is the same. 
-            """
-            # @show sub_basis_index, row
-            
-            index1=sub_basis_index[i][idx1]
-            index2=sub_basis_index[j][idx2]
-            reduced_dm[i,j]= dot(state[index1],state[index2])
-            reduced_dm[j,i]=reduced_dm[i,j]
-        end
-    end
-
-    return reduced_dm, ordered_sub_basis
-end
-
 function myreadbit(bit::BitStr, index::Vector{Int64})
     # read the indexed bit of a bit string
     mapreduce(el -> readbit(bit, el[2]) << (el[1]-1), |, enumerate(index))
 end
 
-function rdm_PXP(::Type{T}, subsystems::Vector{Int64}, state::Vector{ET}) where {N, T <: BitStr{N}, ET}
+function rdm_PXP(::Type{T}, subsystems::Vector{Int64}, state::Vector{ET}, pbc::Bool=true) where {N, T <: BitStr{N}, ET}
     # At least faster than tn contraction
     # Function to compute a reduced density matrix out of a given wave function. Its principle is to divide the system into left and right two parts, and use formula rho_reduced=sum_k I * <k|rho|k> * I, then compare how many states in the left part which are the same, while the right part is still the same.
 
-    basis = PXP_basis(T)
+    basis = PXP_basis(T, pbc)
     @assert length(basis) == length(state) "basis and state must have the same length"
 
     system = [myreadbit(i, subsystems) for i in basis]
@@ -274,14 +199,14 @@ function iso_K2MSS(::Type{T}, k::Int64, inv::Int64=1) where {N, T <: BitStr{N}}
     else
         for i in eachindex(basisK)
             n = basisK[i]
-            category = get_representative(breflect(n))[1]
-            if n <= min(category, n)
-                MSS_dic[n] = k_dic[n]
+            nR = get_representative(breflect(n))[1]
+            if n != nR
+                if n <= min(nR, n)
+                    MSS_dic[n] = [i]
+                end
             end
         end    
         
-        index=findall(x -> x==2, qlist)
-        MSS_dic = Dict(k => v for k in MSS[index] for v in [MSS_dic[k]])
     
     end
 
@@ -299,17 +224,7 @@ function iso_total2MSS(::Type{T}, k::Int64, inv::Int64=1) where {N, T <: BitStr{
     """
     Function to map the total basis to the MSS space basis, k can only equal to 0 or N/2(pi)
     """
-    basis = PXP_basis(T)
-    basisK, k_dic = PXP_K_basis(T, k)
-
-    
-
-    iso = zeros((length(basis), length(keys(MSS_dic))))
-    
-    for (i, state_index) in enumerate(values(MSS_dic))
-        l = length(state_index)
-        iso[state_index, i] .= 1/sqrt(l)
-    end
+    iso = iso_total2K(T, k) * iso_K2MSS(T, k, inv)
 
     return iso
 end
