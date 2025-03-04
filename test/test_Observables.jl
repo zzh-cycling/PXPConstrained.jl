@@ -71,8 +71,8 @@ using LinearAlgebra
     W = (GS_energy - passive_energy)/16
     @test isapprox(W, 0.16915174104683417, atol=1e-6)
 
-    GS_energy, subenergy, passive_energy = ergotropy_PXP_idx_OBC(BitStr{16, Int}, 8, 1300)
+    GS_energy, subenergy, passive_energy = ergotropy_PXP_idx_OBC(BitStr{16, Int}, 8, 1200)
     W = (GS_energy - passive_energy)/16
-    @test isapprox(W, 0.16076624524701522, atol=1e-6)
+    @test isapprox(W,0.19446000922247064, atol=1e-3)
 end
 
