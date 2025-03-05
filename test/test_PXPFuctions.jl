@@ -6,6 +6,7 @@ using LinearAlgebra
     N=12
     state=BitStr{N}(0)
     res = PXPConstrained.Fibonacci_chain_OBC(BitStr{N})
+    # constrained space dims scales as Fibonacci sequence
     @test length(res) == 377
     @test BitStr{N}(0) in res
     @test BitStr{N, Int}(0b100101010101) in res
@@ -13,6 +14,7 @@ using LinearAlgebra
     basis = PXP_basis(BitStr{N, Int})
     @test length(basis) == 322
 
+    # PBC and OBC basis have different dimensions
     basis_obc = PXP_basis(BitStr{N, Int}, false)
     @test length(basis_obc) == 377
 
@@ -22,24 +24,31 @@ using LinearAlgebra
     res_obc = actingH_PXP(BitStr{N, Int}, state,false)
     @test length(res_obc) == 12
 
-    h = PXP_Ham(BitStr{N, Int})
-    @test size(h) == (322, 322)
+    H = PXP_Ham(BitStr{N, Int})
+    @test size(H) == (322, 322)
 
     hk = PXP_K_Ham(BitStr{N, Int}, 0)
     @test size(hk) == (31, 31)
 
+    # map from total basis to FSA basis, isometry which should satisfy u'*u=I, belike:
     res = iso_total2FSA(BitStr{N, Int})
     @test size(res) == (322, 13)
+    @test res'*res ≈ I(13)
 
+    # Dims of PBC's rdm should = Dims of OBC
     rdm = rdm_PXP(BitStr{N, Int}, collect(1:6), ones(322))
     @test size(rdm) == (21, 21)
+    @test length(PXP_basis(BitStr{6, Int}, false)) == 21
 
     map_idx = iso_total2K(BitStr{12, Int},0)
     @test size(map_idx) == (322, 31)
+    @test map_idx'*map_idx ≈ I(31)
 
     rdm_K = rdm_PXP_K(BitStr{24, Int}, collect(1:12), ones(4341),0)
     @test size(rdm_K) == (377, 377)
+    @test length(PXP_basis(BitStr{12, Int}, false)) == 377
 
+    # It means that translate N times is the same as identity, and inversion matrix squared is the identity
     T=translation_matrix(BitStr{N, Int})
     @test isapprox(T^N, I(size(T)[1]), atol=1e-6)
     Inv=inversion_matrix(BitStr{N, Int})
@@ -51,14 +60,16 @@ using LinearAlgebra
     @test length(MSS_basis) == 26
     @test length(PXP_MSS_basis(BitStr{8, Int}, 0)[1]) == length(PXP_K_basis(BitStr{8, Int}, 0)[1])
 
+    # The energy spectrum is symmetric about zero
     H_MSS = PXP_MSS_Ham(BitStr{N, Int}, 0)
     MSS_vals, MSS_vecs = eigen(H_MSS)
     @test isapprox(reverse(MSS_vals) .+ MSS_vals, zeros(26), atol=1e-6)
 
+    # The MSS dims + MSSminv dims = K dims
     @test length(PXP_MSS_basis(BitStr{N, Int}, 0)[1]) + length(PXP_MSS_basis(BitStr{N, Int}, 0, -1)[1]) == length(PXP_K_basis(BitStr{N, Int}, 0)[1])
     H_MSSminv = PXP_MSS_Ham(BitStr{N, Int}, 0, -1)
     MSSminv_vals, MSSminv_vecs = eigen(H_MSSminv)
-    @test MSSminv_vals[3] == 0.0
+    @test isapprox(MSSminv_vals[3], 0.0, atol=1e-6)
 
     map_K2MSS = iso_K2MSS(BitStr{N, Int},0)
     map_K2MSSminv = iso_K2MSS(BitStr{N, Int},0, -1)
@@ -70,12 +81,12 @@ using LinearAlgebra
     map_total2MSS = iso_total2MSS(BitStr{N, Int},0)
     @test size(map_total2MSS) == (322, 26)
     @test map_total2MSS'*map_total2MSS ≈ I(26)
-    # map_idx_MSS=iso_total2MSS(BitStr{12, Int},0)
 
     MSS_vec=MSS_vecs[:,12]
     rdm_MSS = rdm_PXP_MSS(BitStr{N, Int}, collect(1:6), MSS_vec,0)
     @test size(rdm_MSS) == (21, 21) == (length(PXP_basis(BitStr{6, Int}, false)) ,length(PXP_basis(BitStr{6, Int}, false)))
 
+    # Fit the scar's central charge, may change depends on the machine and basic linear algebra package.
     splitlis = collect(1:N-1)
     EE_lis=zeros(length(splitlis))
     for m in eachindex(EE_lis)
@@ -85,4 +96,14 @@ using LinearAlgebra
 
     cent, _= fitpage_curve(EE_lis; mincut=1)
     @test isapprox(cent, 0.587, atol=1e-2)
+
+    # Test the time evolution of the wavefunction, it should be normalized under evolution, and the energy should be conserved.
+    psi0=zeros(322)
+    psi0[1]=1
+    energy, states = eigen(H)
+    times = collect(range(0, stop=10, length=100))
+    wflis = wf_time_evolution(psi0, times, energy, states)
+    @test length(wflis) == 100
+    @test isapprox([norm(wf) for wf in wflis], ones(100), atol = 1e-10)
+    @test isapprox([norm(wf'*H*wf) for wf in wflis], zeros(100), atol = 1e-10)
 end
