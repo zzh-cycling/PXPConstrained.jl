@@ -497,13 +497,12 @@ end
 
 function wf_time_evolution(psi0::Vector{T}, times::Vector{Float64}, energy::Vector{Float64},states::Matrix{Float64}) where {T <: Real}
     wflis=Vector{Vector{ComplexF64}}(undef,length(times))
-    for (i,t) in enumerate(times)
-        wf=similar(psi0)
-        for (j, state) in enumerate(eachcol(states))
-            wf+=exp(-1im*t*energy[j])*dot(psi0,state)*state
-        end
-        wflis[i]=wf
-        # state[end]
+    c = states'*psi0
+    exp_factors = [exp.(-1im * t * energy) for t in times]
+    
+    # Use multi-threading for parallel computation
+    Threads.@threads for i in eachindex(times)
+        wflis[i] = states * (c .* exp_factors[i])
     end
     return wflis
 end

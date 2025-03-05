@@ -34,6 +34,8 @@ function test_gene_scar(::Type{T}) where {N, T <: BitStr{N}}
     scar1=storage(scar)
     scar1/=norm(scar1)
     scar2 = Trans*scar1
+
+    # scar2 is the translation of scar1, scar2 is normalized
     @test norm(scar2) ≈ 1
    
     reg1 = arrayreg(scar1)
@@ -71,7 +73,9 @@ end
     N=12
     T = BitStr{N, Int}
     proj=proj_FSA(T)
+     # projector of subspace should be identity matrix
     @test isapprox(proj, I(size(proj)[1]), atol=1e-6)
+   
 
     proj=proj_FSA2total(T)
     @test size(proj) == (322, 322)
@@ -86,6 +90,7 @@ end
 
     scar, thermal = sep_scar_FSA(T, energy, states)
     total_st=hcat(scar, thermal)
+    # The total_st should be orthonormal
     @test isapprox(total_st'*total_st, I(22))
 
     scar=gene_scar(N)
@@ -98,10 +103,12 @@ end
 
     exact_scar,exact_scar_prime,thermal_ensemble=sep_scar_exact(T, energy, states)
     total_st = hcat(exact_scar, exact_scar_prime, thermal_ensemble)
+    # The total_st should be orthonormal and idempotent
     @test isapprox(total_st'*total_st, I(24))
     P=total_st*total_st'
     @test isapprox(P^2, P)
 
+    # cross-check the entropy of scar state
     c, sk0, mysk0, skpi, myskpi, myscar1, myscar2 = test_gene_scar(T)
     @test isapprox(sk0, mysk0)
     @test isapprox(skpi, myskpi)
@@ -115,6 +122,7 @@ end
     scar1=scar1[basis_int.+1]
     scar2=translation_matrix(BitStr{6,Int})*scar1
 
+    # for N<=6, scar1 and scar2 identical up to a overall coefficient.
     @test scar1 ≈ -scar2
 end
 
