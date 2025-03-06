@@ -171,53 +171,47 @@ function rdm_PXP_K(::Type{T}, subsystems::Vector{Int64}, state::Vector{Float64},
     return reduced_dm
 end
 
-function rdm_new(::Type{T}, l::Int64, state::Vector{ET}, pbc::Bool=true) where {N, T <: BitStr{N}, ET}
+takeleft(x, N::Int, l::Int) = x >> (N - l)
+takeright(x, l::Int) = x & ((1 << l) - 1)
+takeenviron(x, mask::BitStr{l}) where {l} = x & mask
+takesystem(x, mask::BitStr{l}) where {l} = ~(x & mask)
+function rdm_new(::Type{T}, ::Type{subT}, state::Vector{ET}, pbc::Bool=true) where {N,T <: BitStr{N}, ET, l, subT <: BitStr{l}}
     basis = PXP_basis(T, pbc)
-    @assert length(basis) == length(state) "basis and state must have the same length"
+    @assert length(basis) == length(state) "state length is expected to be $(length(basis)), but got $(length(state))"
 
-    sorted_basis = sort(basis, by = x -> x & (1<< l -1))
+    sorted_basis = sort(basis, by = x -> (takeright(x, l), takeleft(x, N, l)))
 
     # Keep track of indices where the key changes
     result_indices = Int[]
     current_key = -1
-    
     for (idx, i) in enumerate(sorted_basis)
-        key = i & ((1 << l) - 1)  # Get lower l bits
-        
+        key = takeright(i, l)  # Get lower l bits
         if key != current_key
             push!(result_indices, idx)
             current_key = key
         end
     end
-    
     # Add the final index to get complete ranges
     push!(result_indices, length(sorted_basis) + 1)
     
-    # Create ranges for each block with the same key
-    ranges = [result_indices[i]:(result_indices[i+1]-1) for i in 1:(length(result_indices)-1)]
     # Create reduced density matrix
-    reduced_basis = PXP_basis(BitStr{l}, false)
+    reduced_basis = getfield.(PXP_basis(subT, false), :buf)
     
     len = length(reduced_basis)
     
     # Initialize the reduced density matrix
     reduced_dm = zeros(ET, (len, len))
     
-    for r in ranges
-        if length(r) == len
-            st = state[r]
-        else
-            # Get the left bits (subsystem states)
-            left_states = [BitStr{l}((b >> (N - l)).buf) for b in sorted_basis[r]]
-            
+    for i in 1:length(result_indices)-1
+        range = result_indices[i]:result_indices[i+1]-1
+        if length(range) == len
+            reduced_dm .+= view(state, range) * view(state, range)'
+        else            
             # Get indices in the reduced basis
-            indices = [searchsortedfirst(reduced_basis, s) for s in left_states]
-            st = zeros(ET, len)
-            st[indices] .= state[r]
+            indices = [searchsortedfirst(reduced_basis, takeleft(sorted_basis[r], N, l)) for r in range]
+            s = view(state, range)
+            view(reduced_dm, indices, indices) .+= s .* s'
         end
-        
-        
-        reduced_dm += st * st'
     end
     
     return reduced_dm
@@ -496,9 +490,8 @@ function PXP_MSS_Ham(::Type{T}, k::Int, inv::Int64=1) where {N, T <: BitStr{N}}
 end
 
 function wf_time_evolution(psi0::Vector{T}, times::Vector{Float64}, energy::Vector{Float64},states::Matrix{Float64}) where {T <: Real}
-    wflis=Vector{Vector{ComplexF64}}(undef,length(times))
     c = states'*psi0
-    exp_factors = [exp.(-1im * t * energy) for t in times]
+    exp_factors = [exp.(-1im * energy * t) for t in times]
     
     # Use multi-threading for parallel computation
     Threads.@threads for i in eachindex(times)
