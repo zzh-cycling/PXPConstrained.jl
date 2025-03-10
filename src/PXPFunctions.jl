@@ -27,78 +27,6 @@ function Fibonacci_chain_PBC(::Type{T}) where {N, T <: BitStr{N}}
     return filtered_fib_chain
 end
 
-function Fibonacci_chain_OBC(::Type{T}, positions::Vector{Int}=collect(1:length(T))) where {N, T <: BitStr{N}}
-    # Generate Fibonacci chain for PXP model with open boundary condition at specified positions
-    # Only positions specified will have values, all other bits remain 0
-    
-    if isempty(positions)
-        return [T(0)]
-    end
-    
-    sort!(positions)  # Ensure positions are in ascending order
-    n_pos = length(positions)
-    
-    # Initialize with base cases for the first position
-    fib_chain = [[T(0), T(1 << (positions[1]-1))]]
-    
-    # Build chain iteratively for each position
-    for i in 2:n_pos
-        current_pos = positions[i]
-        prev_pos = positions[i-1]
-        new_chain = T[]
-        
-        # Check if positions are adjacent in the original bit string
-        is_adjacent = (prev_pos == current_pos - 1)
-        
-        for state in fib_chain[i-1]
-            # Always add the state as is (with 0 at the new position)
-            push!(new_chain, state)
-            
-            # Check if we can set a 1 at the current position
-            prev_bit_is_one = readbit(state, prev_pos) == 1
-            
-            # Can add 1 only if adjacent positions don't both have 1s
-            if !(is_adjacent && prev_bit_is_one)
-                push!(new_chain, state | T(1 << (current_pos-1)))
-            end
-        end
-        
-        push!(fib_chain, new_chain)
-    end
-    
-    # Return the final chain
-    return fib_chain[n_pos]
-end
-
-function Fibonacci_chain_PBC(::Type{T}, positions::Vector{Int}=collect(1:length(T))) where {N, T <: BitStr{N}}
-    # Generate Fibonacci chain for PXP model with periodic boundary condition at specified positions
-    chain = Fibonacci_chain_OBC(T, positions)
-    
-    if length(positions) <= 1
-        return chain
-    end
-    
-    filtered_chain = T[]
-    
-    # For PBC, check if first and last positions are consecutive in the positions array
-    first_pos = positions[1]
-    last_pos = positions[end]
-    
-    # Check if they're adjacent in a circular manner
-    is_circular_adjacent = (first_pos == 1 && last_pos == N) || (last_pos + 1 == first_pos)
-    
-    for state in chain
-        # Only filter if positions are adjacent and both have 1s
-        if is_circular_adjacent && readbit(state, first_pos) == 1 && readbit(state, last_pos) == 1
-            continue
-        else
-            push!(filtered_chain, state)
-        end
-    end
-    
-    return filtered_chain
-end
-
 
 function actingH_PXP(::Type{T}, n::T, pbc::Bool=true) where {N, T <: BitStr{N}}
     # The type of n is DitStr{D, N, Int}, which is a binary string with length N in D-ary form.
@@ -244,27 +172,27 @@ function rdm_PXP_K(::Type{T}, subsystems::Vector{Int64}, state::Vector{Float64},
     return reduced_dm
 end
 
-
-takeleft(x, N::Int, l::Int) = x >> (N - l)
-takeright(x, l::Int) = x & ((1 << l) - 1)
-takeenviron(x, mask::BitStr{l}) where {l} = x & mask
-takesystem(x, mask::BitStr{l}) where {l} = ~(x & mask)
-function rdm_new(::Type{T}, ::Type{subT}, state::Vector{ET}, pbc::Bool=true) where {N,T <: BitStr{N}, ET, l, subT <: BitStr{l}}
+takeenviron(x, mask::BitStr{l}) where {l} = x & (~mask)
+takesystem(x, mask::BitStr{l}) where {l} = (x & mask)
+function rdm_new(::Type{T}, ::Type{subT}, subsystems::Vector{Int64},state::Vector{ET}, pbc::Bool=true) where {N,T <: BitStr{N}, ET, l, subT <: BitStr{l}}
+    # Usually subsystem indices count from the left.
+    # subsystems = N .- subsystems .+1
+    mask = bmask(T, subsystems...)
     basis = PXP_basis(T, pbc)
     @assert length(basis) == length(state) "state length is expected to be $(length(basis)), but got $(length(state))"
-
-    sorted_basis = sort(basis, by = x -> (takeright(x, l), takeleft(x, N, l)))
+    sorted_basis = sort(basis, by = x -> (takeenviron(x, mask), takesystem(x, mask)))
 
     # Keep track of indices where the key changes
     result_indices = Int[]
     current_key = -1
     for (idx, i) in enumerate(sorted_basis)
-        key = takeright(i, l)  # Get lower l bits
+        key = takeenviron(i, mask)  # Get lower l bits
         if key != current_key
             push!(result_indices, idx)
             current_key = key
         end
     end
+    
     # Add the final index to get complete ranges
     push!(result_indices, length(sorted_basis) + 1)
     
@@ -283,7 +211,7 @@ function rdm_new(::Type{T}, ::Type{subT}, state::Vector{ET}, pbc::Bool=true) whe
             reduced_dm .+= view(state, range) * view(state, range)'
         else            
             # Get indices in the reduced basis
-            indices = [searchsortedfirst(new_educed_basis, takeleft(sorted_basis[r], N, l)) for r in range]
+            indices = [searchsortedfirst(new_reduced_basis, takesystem(sorted_basis[r], mask)) for r in range]
             s = view(state, range)
             view(reduced_dm, indices, indices) .+= s .* s'
         end
@@ -565,8 +493,9 @@ function PXP_MSS_Ham(::Type{T}, k::Int, inv::Int64=1) where {N, T <: BitStr{N}}
 end
 
 function wf_time_evolution(psi0::Vector{T}, times::Vector{Float64}, energy::Vector{Float64},states::Matrix{Float64}) where {T <: Real}
+    wflis=Vector{Vector{ComplexF64}}(undef,length(times))
     c = states'*psi0
-    exp_factors = [exp.(-1im * energy * t) for t in times]
+    exp_factors = [exp.(-1im * t * energy) for t in times]
     
     # Use multi-threading for parallel computation
     Threads.@threads for i in eachindex(times)
