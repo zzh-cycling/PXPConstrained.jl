@@ -171,21 +171,22 @@ function rdm_PXP_K(::Type{T}, subsystems::Vector{Int64}, state::Vector{Float64},
     return reduced_dm
 end
 
-takeleft(x, N::Int, l::Int) = x >> (N - l)
-takeright(x, l::Int) = x & ((1 << l) - 1)
-takeenviron(x, mask::BitStr{l}) where {l} = x & mask
-takesystem(x, mask::BitStr{l}) where {l} = ~(x & mask)
-function rdm_new(::Type{T}, ::Type{subT}, state::Vector{ET}, pbc::Bool=true) where {N,T <: BitStr{N}, ET, l, subT <: BitStr{l}}
+
+takeenviron(x, mask::BitStr{l}) where {l} = x & (~mask)
+takesystem(x, mask::BitStr{l}) where {l} = (x & mask)
+function rdm_new(::Type{T}, ::Type{subT}, subsystems::Vector{Int64},state::Vector{ET}, pbc::Bool=true) where {N,T <: BitStr{N}, ET, l, subT <: BitStr{l}}
+    # Usually subsystem indices count from the left.
+    # subsystems = N .- subsystems .+1
+    mask = bmask(T, subsystems...)
     basis = PXP_basis(T, pbc)
     @assert length(basis) == length(state) "state length is expected to be $(length(basis)), but got $(length(state))"
-
-    sorted_basis = sort(basis, by = x -> (takeright(x, l), takeleft(x, N, l)))
+    sorted_basis = sort(basis, by = x -> (takeenviron(x, mask), takesystem(x, mask)))
 
     # Keep track of indices where the key changes
     result_indices = Int[]
     current_key = -1
     for (idx, i) in enumerate(sorted_basis)
-        key = takeright(i, l)  # Get lower l bits
+        key = takeenviron(i, mask)  # Get lower l bits
         if key != current_key
             push!(result_indices, idx)
             current_key = key
@@ -194,21 +195,23 @@ function rdm_new(::Type{T}, ::Type{subT}, state::Vector{ET}, pbc::Bool=true) whe
     # Add the final index to get complete ranges
     push!(result_indices, length(sorted_basis) + 1)
     
-    # Create reduced density matrix
-    reduced_basis = getfield.(PXP_basis(subT, false), :buf)
     
+    reduced_basis = PXP_basis(subT, false)
     len = length(reduced_basis)
-    
+    new_reduced_basis = Vector{T}(undef, len)
+    for (i,basis) in enumerate(reduced_basis)
+        new_reduced_basis[i]  = sum(T.([basis...] .<< (subsystems.-1)))
+    end
     # Initialize the reduced density matrix
     reduced_dm = zeros(ET, (len, len))
-    
+
     for i in 1:length(result_indices)-1
         range = result_indices[i]:result_indices[i+1]-1
         if length(range) == len
             reduced_dm .+= view(state, range) * view(state, range)'
         else            
             # Get indices in the reduced basis
-            indices = [searchsortedfirst(reduced_basis, takeleft(sorted_basis[r], N, l)) for r in range]
+            indices = [searchsortedfirst(new_reduced_basis, takesystem(sorted_basis[r], mask)) for r in range]
             s = view(state, range)
             view(reduced_dm, indices, indices) .+= s .* s'
         end
