@@ -27,6 +27,79 @@ function Fibonacci_chain_PBC(::Type{T}) where {N, T <: BitStr{N}}
     return filtered_fib_chain
 end
 
+function Fibonacci_chain_OBC(::Type{T}, positions::Vector{Int}=collect(1:length(T))) where {N, T <: BitStr{N}}
+    # Generate Fibonacci chain for PXP model with open boundary condition at specified positions
+    # Only positions specified will have values, all other bits remain 0
+    
+    if isempty(positions)
+        return [T(0)]
+    end
+    
+    sort!(positions)  # Ensure positions are in ascending order
+    n_pos = length(positions)
+    
+    # Initialize with base cases for the first position
+    fib_chain = [[T(0), T(1 << (positions[1]-1))]]
+    
+    # Build chain iteratively for each position
+    for i in 2:n_pos
+        current_pos = positions[i]
+        prev_pos = positions[i-1]
+        new_chain = T[]
+        
+        # Check if positions are adjacent in the original bit string
+        is_adjacent = (prev_pos == current_pos - 1)
+        
+        for state in fib_chain[i-1]
+            # Always add the state as is (with 0 at the new position)
+            push!(new_chain, state)
+            
+            # Check if we can set a 1 at the current position
+            prev_bit_is_one = readbit(state, prev_pos) == 1
+            
+            # Can add 1 only if adjacent positions don't both have 1s
+            if !(is_adjacent && prev_bit_is_one)
+                push!(new_chain, state | T(1 << (current_pos-1)))
+            end
+        end
+        
+        push!(fib_chain, new_chain)
+    end
+    
+    # Return the final chain
+    return fib_chain[n_pos]
+end
+
+function Fibonacci_chain_PBC(::Type{T}, positions::Vector{Int}=collect(1:length(T))) where {N, T <: BitStr{N}}
+    # Generate Fibonacci chain for PXP model with periodic boundary condition at specified positions
+    chain = Fibonacci_chain_OBC(T, positions)
+    
+    if length(positions) <= 1
+        return chain
+    end
+    
+    filtered_chain = T[]
+    
+    # For PBC, check if first and last positions are consecutive in the positions array
+    first_pos = positions[1]
+    last_pos = positions[end]
+    
+    # Check if they're adjacent in a circular manner
+    is_circular_adjacent = (first_pos == 1 && last_pos == N) || (last_pos + 1 == first_pos)
+    
+    for state in chain
+        # Only filter if positions are adjacent and both have 1s
+        if is_circular_adjacent && readbit(state, first_pos) == 1 && readbit(state, last_pos) == 1
+            continue
+        else
+            push!(filtered_chain, state)
+        end
+    end
+    
+    return filtered_chain
+end
+
+
 function actingH_PXP(::Type{T}, n::T, pbc::Bool=true) where {N, T <: BitStr{N}}
     # The type of n is DitStr{D, N, Int}, which is a binary string with length N in D-ary form.
     # Acting Hamiltonian on a given state in bitstr and return the output states in bitstr
@@ -171,6 +244,7 @@ function rdm_PXP_K(::Type{T}, subsystems::Vector{Int64}, state::Vector{Float64},
     return reduced_dm
 end
 
+
 takeleft(x, N::Int, l::Int) = x >> (N - l)
 takeright(x, l::Int) = x & ((1 << l) - 1)
 takeenviron(x, mask::BitStr{l}) where {l} = x & mask
@@ -194,7 +268,6 @@ function rdm_new(::Type{T}, ::Type{subT}, state::Vector{ET}, pbc::Bool=true) whe
     # Add the final index to get complete ranges
     push!(result_indices, length(sorted_basis) + 1)
     
-    # Create reduced density matrix
     reduced_basis = PXP_basis(subT, false)
     len = length(reduced_basis)
     new_reduced_basis = Vector{T}(undef, len)
@@ -210,7 +283,7 @@ function rdm_new(::Type{T}, ::Type{subT}, state::Vector{ET}, pbc::Bool=true) whe
             reduced_dm .+= view(state, range) * view(state, range)'
         else            
             # Get indices in the reduced basis
-            indices = [searchsortedfirst(reduced_basis, takeleft(sorted_basis[r], N, l)) for r in range]
+            indices = [searchsortedfirst(new_educed_basis, takeleft(sorted_basis[r], N, l)) for r in range]
             s = view(state, range)
             view(reduced_dm, indices, indices) .+= s .* s'
         end
