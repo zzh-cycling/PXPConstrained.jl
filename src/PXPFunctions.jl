@@ -91,90 +91,9 @@ function myreadbit(bit::BitStr, index::Vector{Int64})
     mapreduce(el -> readbit(bit, el[2]) << (el[1]-1), |, enumerate(index))
 end
 
-function rdm_PXP(::Type{T}, subsystems::Vector{Int64}, state::Vector{ET}, pbc::Bool=true) where {N, T <: BitStr{N}, ET}
-    # At least faster than tn contraction
-    # Function to compute a reduced density matrix out of a given wave function. Its principle is to divide the system into left and right two parts, and use formula rho_reduced=sum_k I * <k|rho|k> * I, then compare how many states in the left part which are the same, while the right part is still the same.
-
-    basis = PXP_basis(T, pbc)
-    @assert length(basis) == length(state) "basis and state must have the same length"
-
-    system = [myreadbit(i, subsystems) for i in basis]
-    remaining = setdiff(1:N, subsystems)
-    environ = [myreadbit(i, remaining) for i in basis]
-    
-    # Here we use a dictionary to store the category of left part of the basis, which is the basis of subsystem.
-    sub_basis = Dict{T, Vector{Int}}()  # maps subsystem basis to its indices in `state`.
-
-    for (i, string) in enumerate(system)
-        if haskey(sub_basis, string)
-            push!(sub_basis[string], i)
-        else
-            sub_basis[string] = [i]
-        end
-    end
-
-    # Sort the sub_basis in natural order, and obtain the corresponding index in PXP_basis of sub_basis
-    ordered_sub_basis = sort(collect(keys(sub_basis)))
-    sub_basis_index = [sub_basis[k] for k in ordered_sub_basis]
-    size=length(ordered_sub_basis)
-
-    # for given basis of subsystem, we first obtain which state in total system will give the target subsystem basis.
-    reduced_dm = zeros(ET, (size, size))
-    cache = [Dict(zip(environ[idcs], idcs)) for idcs in sub_basis_index]
-    for i in 1:size, j in i:size
-        val = zero(ET)
-        for idr in sub_basis_index[i]
-            r = environ[idr]
-            target = get(cache[j], r, -1)
-            if target != -1
-                @inbounds val += state[idr]' * state[target]
-            end
-        end
-        reduced_dm[i, j] = val
-        reduced_dm[j, i] = reduced_dm[i, j]
-    end
-    
-    return reduced_dm
-end
-
-function iso_total2K(::Type{T}, k::Int64) where {N, T <: BitStr{N}}
-    """
-    Function to map the total basis to the K space basis, actually is the isometry, defined as W'*W=I, W*W'=P, P^2=P
-    """
-    basis = PXP_basis(T)
-
-    k_dic = Dict{Int, Vector{Int64}}()
-
-    for i in eachindex(basis)
-        state=basis[i]
-        category = get_representative(state)[1]
-        if haskey(k_dic, category)
-            push!(k_dic[category], i)
-        else
-            k_dic[category] = [i]
-        end
-    end
-    
-    iso = zeros((length(basis), length(keys(k_dic))))
-    
-    for (i, state_index) in enumerate(values(k_dic))
-        l = length(state_index)
-        iso[state_index, i] .= 1/sqrt(l)
-    end
-
-    return iso
-end
-
-function rdm_PXP_K(::Type{T}, subsystems::Vector{Int64}, state::Vector{Float64}, k::Int64) where {N, T <: BitStr{N}}
-
-    state=iso_total2K(T,k)*state
-    reduced_dm = rdm_PXP(T, subsystems, state)
-    return reduced_dm
-end
-
 takeenviron(x, mask::BitStr{l}) where {l} = x & (~mask)
 takesystem(x, mask::BitStr{l}) where {l} = (x & mask)
-function rdm_new(::Type{T}, ::Type{subT}, subsystems::Vector{Int64},state::Vector{ET}, pbc::Bool=true) where {N,T <: BitStr{N}, ET, l, subT <: BitStr{l}}
+function rdm_PXP(::Type{T}, ::Type{subT}, subsystems::Vector{Int64},state::Vector{ET}, pbc::Bool=true) where {N,T <: BitStr{N}, ET, l, subT <: BitStr{l}}
     # Usually subsystem indices count from the left.
     # subsystems = N .- subsystems .+1
     mask = bmask(T, subsystems...)
@@ -220,6 +139,50 @@ function rdm_new(::Type{T}, ::Type{subT}, subsystems::Vector{Int64},state::Vecto
     return reduced_dm
 end
 
+function rdm_PXP(n::Int, subsystems::Vector{Int64}, state::Vector{ET}, pbc::Bool=true) where {ET}
+    return rdm_PXP(BitStr{n, Int}, BitStr{length(subsystems), Int}, subsystems, state, pbc)
+end
+
+function iso_total2K(::Type{T}, k::Int64) where {N, T <: BitStr{N}}
+    """
+    Function to map the total basis to the K space basis, actually is the isometry, defined as W'*W=I, W*W'=P, P^2=P
+    """
+    basis = PXP_basis(T)
+
+    k_dic = Dict{Int, Vector{Int64}}()
+
+    for i in eachindex(basis)
+        state=basis[i]
+        category = get_representative(state)[1]
+        if haskey(k_dic, category)
+            push!(k_dic[category], i)
+        else
+            k_dic[category] = [i]
+        end
+    end
+    
+    iso = zeros((length(basis), length(keys(k_dic))))
+    
+    for (i, state_index) in enumerate(values(k_dic))
+        l = length(state_index)
+        iso[state_index, i] .= 1/sqrt(l)
+    end
+
+    return iso
+end
+iso_total2K(n::Int, k::Int64) = iso_total2K(BitStr{n, Int}, k)
+
+function rdm_PXP_K(::Type{T}, ::Type{subT}, subsystems::Vector{Int64},state::Vector{ET}, k::Int64) where {N,T <: BitStr{N}, ET, l, subT <: BitStr{l}}
+    iso = iso_total2K(T, k)
+    @assert size(iso)[2] == length(state) "state length is expected to be $(size(iso)[2]), but got $(length(state))"
+    state=iso*state
+    reduced_dm = rdm_PXP(T, subT, subsystems, state)
+    return reduced_dm
+end
+
+function rdm_PXP_K(n::Int, subsystems::Vector{Int64},state::Vector{ET}, k::Int64) where {ET}
+    return rdm_PXP_K(BitStr{n, Int}, BitStr{length(subsystems), Int}, subsystems, state, k)
+end
 
 function iso_K2MSS(::Type{T}, k::Int64, inv::Int64=1) where {N, T <: BitStr{N}}
     """
@@ -269,21 +232,27 @@ function iso_K2MSS(::Type{T}, k::Int64, inv::Int64=1) where {N, T <: BitStr{N}}
 
     return iso
 end
+iso_K2MSS(n::Int, k::Int64, inv::Int64=1) = iso_K2MSS(BitStr{n, Int}, k, inv)
 
 function iso_total2MSS(::Type{T}, k::Int64, inv::Int64=1) where {N, T <: BitStr{N}}
-    """
-    Function to map the total basis to the MSS space basis, k can only equal to 0 or N/2(pi)
-    """
+    # Function to map the total basis to the MSS space basis, k can only equal to 0 or N/2(pi)
     iso = iso_total2K(T, k) * iso_K2MSS(T, k, inv)
 
     return iso
 end
+iso_total2MSS(n::Int, k::Int64, inv::Int64=1) = iso_total2MSS(BitStr{n, Int}, k, inv)
 
-function rdm_PXP_MSS(::Type{T}, subsystems::Vector{Int64}, state::Vector{Float64}, k::Int64, inv::Int64=1) where {N, T <: BitStr{N}}
-
-    state=iso_total2MSS(T, k, inv)*state
-    reduced_dm = rdm_PXP(T, subsystems, state)
+function rdm_PXP_MSS(::Type{T}, ::Type{subT}, subsystems::Vector{Int64},state::Vector{ET}, k::Int64, inv::Int64=1) where {N,T <: BitStr{N}, ET, l, subT <: BitStr{l}}
+    iso = iso_total2MSS(T, k, inv)
+    @assert size(iso)[2] == length(state) "state length is expected to be $(size(iso)[2]), but got $(length(state))"
+    state=iso*state
+    reduced_dm = rdm_PXP(T, subT, subsystems, state)
     return reduced_dm
+end
+
+function rdm_PXP_MSS(n::Int64, subsystems::Vector{Int64},state::Vector{ET}, k::Int64, inv::Int64=1) where {ET}
+    return rdm_PXP_MSS(BitStr{n, Int}, BitStr{length(subsystems), Int}, subsystems, state, k, inv)
+    
 end
 
 function inversion_matrix(::Type{T}) where {N, T <: BitStr{N}}
@@ -302,6 +271,7 @@ function inversion_matrix(::Type{T}) where {N, T <: BitStr{N}}
    
     return Imatrix
 end
+inversion_matrix(n::Int) = inversion_matrix(BitStr{n, Int})
 
 function cyclebits(state::T, n_translations::Int) where {N, T <: BitStr{N}}
     """
@@ -365,6 +335,8 @@ function PXP_K_basis(::Type{T}, k::Int64) where {N, T <: BitStr{N}}
 
     return basisK, basis_dic
 end
+PXP_K_basis(n::Int, k::Int64) = PXP_K_basis(BitStr{n, Int}, k)
+
 
 function PXP_MSS_basis(::Type{T}, k::Int64,inv::Int64=1) where {N, T <: BitStr{N}}
     """
@@ -408,7 +380,7 @@ function PXP_MSS_basis(::Type{T}, k::Int64,inv::Int64=1) where {N, T <: BitStr{N
     end
     
 end
-
+PXP_MSS_basis(n::Int, k::Int64, inv::Int64=1) = PXP_MSS_basis(BitStr{n, Int}, k, inv)
 
 function PXP_K_Ham(::Type{T}, k::Int, Omega::Float64=1.0) where {N, T <: BitStr{N}}
     """
@@ -521,7 +493,7 @@ function translation_matrix(::Type{T}) where {N, T <: BitStr{N}}
     
     return Mat
 end
-
+translation_matrix(n::Int) = translation_matrix(BitStr{n, Int})
 
 function actingHplus_PXP(::Type{T}, rowstate::T) where {N, T <: BitStr{N}}
     mask = bmask(T, N, N-2)
@@ -628,7 +600,7 @@ function PXP_FSA_Ham(::Type{T}) where {N, T <: BitStr{N}}
     # Examples
     """
     Ham = PXP_Ham(T, true)
-    file_path = "/Users/cycling/Documents/projects/big_data/scar_thermal_FSA/iso_FSA/iso_total2FSA$(N).jld"
+    file_path = "a/Users/cycling/Documents/projects/big_data/scar_thermal_FSA/iso_FSA/iso_total2FSA$(N).jld"
 
     if isfile(file_path)
         iso = load(file_path, "iso")
@@ -639,3 +611,5 @@ function PXP_FSA_Ham(::Type{T}) where {N, T <: BitStr{N}}
     H = iso' * Ham * iso
     return H
 end
+PXP_FSA_Ham(n::Int) = PXP_FSA_Ham(BitStr{n, Int})
+# Such behavior is allowed, though it isn't type stable, but it is not a performance bottleneck(aditional cost is deserved).

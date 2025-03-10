@@ -13,33 +13,33 @@ function ee(subrm::Matrix{Float64})
      return EE
 end
 
-function ee_PXP_idx(::Type{T}, splitlis::Vector{Int64}, idx::Int64)  where {N, T <: BitStr{N}}
+function ee_PXP_idx(N::Int64, splitlis::Vector{Int64}, idx::Int64) 
     """
     only calculate half the EE list
     """
-    energy, states= eigen(PXP_Ham(T))
+    energy, states= eigen(PXP_Ham(BitStr{N, Int}))
     idx_state=states[:,idx]
     EE_lis=zeros(div(length(splitlis)+1,2))
     for m in 1:div(length(splitlis)+1,2)
-        subidx=rdm_PXP(BitStr{N, Int}, collect(1:splitlis[m]), idx_state)
+        subidx=rdm_PXP(N, collect(1:splitlis[m]), idx_state)
         EE_lis[m]=ee(subidx)
     end
     EE_lis=[EE_lis; sort(EE_lis[1:div(length(splitlis)-1,2)],rev=true)]
     return EE_lis
 end
 
-function ee_PXP_state(::Type{T},splitlis::Vector{Int64},state::Vector{ET}) where {N, T <: BitStr{N}, ET <: Real}
+function ee_PXP_state(N::Int64,splitlis::Vector{Int64},state::Vector{ET}) where {ET}
     EE_lis=zeros(length(splitlis))
     for m in eachindex(EE_lis)
-        subrho=rdm_PXP(T, collect(1:splitlis[m]), state)
+        subrho=rdm_PXP(N, collect(1:splitlis[m]), state)
         EE_lis[m]=ee(subrho)
     end
     return EE_lis
 end
 
-function ee_PXP_scaling_fig(::Type{T}, state::Vector{ET},fit::String) where {N, T <: BitStr{N}, ET <: Real}
+function ee_PXP_scaling_fig(N::Int64, state::Vector{ET},fit::String) where {ET}
     splitlis=Vector(1:N-1)
-    EElis=ee_PXP_state(T,splitlis,state)
+    EElis=ee_PXP_state(N, splitlis, state)
 
     if fit=="CC" 
         cent, fig=fitCCEntEntScal(EElis; mincut=1, pbc=true)
@@ -51,13 +51,13 @@ function ee_PXP_scaling_fig(::Type{T}, state::Vector{ET},fit::String) where {N, 
     return cent, fig
 end
 
-function mutual_information(::Type{T}, state::Vector{Float64}, subsystems::Tuple{Vector{Int64}, Vector{Int64}}) where {N, T <: BitStr{N}}
+function mutual_information(N::Int64, subsystems::Tuple{Vector{Int64}, Vector{Int64}}, state::Vector{ET}, pbc::Bool=true) where {ET}
     A, B = subsystems
     # MI formula defined as: I(A:B) = S_A + S_B - S_AB
     # Calculate the reduced density matrices
-    ρ_A = rdm_PXP(T, A, state)
-    ρ_B = rdm_PXP(T, B, state)
-    ρ_AB = rdm_PXP(T, vcat(A,B), state)
+    ρ_A = rdm_PXP(N, A, state)
+    ρ_B = rdm_PXP(N, B, state)
+    ρ_AB = rdm_PXP(N, vcat(A,B), state)
     # Calculate the Von Neumann entropies
     S_A = ee(ρ_A)
     S_B = ee(ρ_B)
@@ -68,20 +68,22 @@ function mutual_information(::Type{T}, state::Vector{Float64}, subsystems::Tuple
     
 end
 
-function tri_mutual_information(::Type{T}, state::Vector{Float64}, subsystems::Tuple{Vector{Int64}, Vector{Int64}, Vector{Int64}}) where {N, T <: BitStr{N}}
+
+
+function tri_mutual_information(N::Int64, subsystems::Tuple{Vector{Int64}, Vector{Int64}, Vector{Int64}}, state::Vector{ET}, pbc::Bool=true) where {ET}
     A, B, C = subsystems
     # TMI formula defined as: I(A:B:C) = S_A + S_B + S_C - S_AB - S_BC - S_AC + S_ABC
     
     @time begin 
-    ρ_A = rdm_PXP(T, A, state)
-    ρ_B = rdm_PXP(T, B, state)
-    ρ_C = rdm_PXP(T, C, state)
+    ρ_A = rdm_PXP(N, A, state)
+    ρ_B = rdm_PXP(N, B, state)
+    ρ_C = rdm_PXP(N, C, state)
 
-    ρ_AB = rdm_PXP(T, vcat(A,B), state)
-    ρ_BC = rdm_PXP(T, vcat(B,C), state)
-    ρ_AC = rdm_PXP(T, vcat(A,C), state)
+    ρ_AB = rdm_PXP(N, vcat(A,B), state)
+    ρ_BC = rdm_PXP(N, vcat(B,C), state)
+    ρ_AC = rdm_PXP(N, vcat(A,C), state)
     
-    ρ_ABC = rdm_PXP(T, vcat(A,B,C), state)
+    ρ_ABC = rdm_PXP(N, vcat(A,B,C), state)
     end
     myprint(stdout,"rho complete")
     
@@ -132,7 +134,7 @@ function domain_wall(::Type{T}, pbc::Bool=true) where {N, T <: BitStr{N}}
     l=length(basis)
     dw = zeros(l)
 
-    mask = bmask(BitStr{N, Int}, collect(2:2:N)...)
+    mask = bmask(T, collect(2:2:N)...)
     for (idx, str) in enumerate(basis)
         masked_str = flip(str, mask)
         Zi=sum([masked_str...].-1/2)
@@ -141,7 +143,7 @@ function domain_wall(::Type{T}, pbc::Bool=true) where {N, T <: BitStr{N}}
 
     return dw
 end
-
+domain_wall(N::Int64, pbc::Bool=true) = domain_wall(BitStr{N, Int}, pbc)
 
 function particlenumber(::Type{T},pbc::Bool=true) where {N, T <: BitStr{N}}
     """
@@ -158,6 +160,7 @@ function particlenumber(::Type{T},pbc::Bool=true) where {N, T <: BitStr{N}}
     return P
     
 end
+particlenumber(N::Int64, pbc::Bool=true) = particlenumber(BitStr{N, Int}, pbc)
 
 function on_siten(::Type{T}, i::Int64,pbc::Bool=true)  where {N, T <:BitStr{N}}
     """
@@ -174,16 +177,15 @@ function on_siten(::Type{T}, i::Int64,pbc::Bool=true)  where {N, T <:BitStr{N}}
     return P
     
 end
+on_siten(N::Int64, i::Int64, pbc::Bool=true) = on_siten(BitStr{N, Int}, i, pbc)
 
-
-function ergotropy_PXP_idx(::Type{T}, l::Int64, idx::Int64) where {N, T <: BitStr{N}}
-    HA=PXP_Ham(BitStr{l, Int},false)
-    sub_basis=PXP_basis(BitStr{l, Int},false)
-    energy, states= eigen(PXP_Ham(T))
+function ergotropy_PXP_idx(N::Int64, l::Int64, idx::Int64, pbc::Bool=true)
+    HA=PXP_Ham(BitStr{l, Int}, false)
+    energy, states= eigen(PXP_Ham(BitStr{N, Int}, pbc))
     subenergy, substates = eigen(HA)
     
     state = states[:,idx]
-    subrho = rdm_PXP(T,collect(1:l), state) 
+    subrho = rdm_PXP(N, collect(1:l), state, pbc) 
     GS_energy=tr(subrho*HA)
 
     spectrum=eigvals(subrho)
@@ -193,11 +195,10 @@ function ergotropy_PXP_idx(::Type{T}, l::Int64, idx::Int64) where {N, T <: BitSt
     return GS_energy, subenergy[1], passive_energy
 end
 
-function ergotropy_PXP_state(::Type{T}, l::Int64, state::Vector{ET}) where {N, T <: BitStr{N}, ET}
-    HA=PXP_Ham(BitStr{l, Int},false)
-    sub_basis=PXP_basis(BitStr{l, Int},false)
+function ergotropy_PXP_state(N::Int64, l::Int64,  state::Vector{ET}, pbc::Bool=true) where {ET}
+    HA=PXP_Ham(BitStr{l, Int}, false)
     subenergy, substates= eigen(HA)
-    subrho = rdm_PXP(T,collect(1:l), state) 
+    subrho = rdm_PXP(N, collect(1:l), state, pbc) 
 
     GS_energy=tr(subrho*HA)
     spectrum=eigvals(subrho)
@@ -207,19 +208,3 @@ function ergotropy_PXP_state(::Type{T}, l::Int64, state::Vector{ET}) where {N, T
     return GS_energy, subenergy[1], passive_energy
 end
 
-function ergotropy_PXP_idx_OBC(::Type{T}, l::Int64, idx::Int64) where {N, T <: BitStr{N}}
-    HA=PXP_Ham(BitStr{l, Int},false)
-    sub_basis=PXP_basis(BitStr{l, Int},false)
-    energy, states= eigen(PXP_Ham(T,false))
-    subenergy, substates= eigen(HA)
-
-    state=states[:,idx]
-    subrho = rdm_PXP(T, collect(1:l), state, false) 
-     
-    GS_energy=tr(subrho*HA)
-    spectrum=eigvals(subrho)
-    sorted_spectrum=sort(spectrum, rev=true)
-    passive_energy=dot(sorted_spectrum, subenergy)
-
-    return GS_energy, subenergy[1], passive_energy
-end

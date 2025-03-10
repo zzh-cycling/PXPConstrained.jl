@@ -36,7 +36,7 @@ using LinearAlgebra
     @test res'*res ≈ I(13)
 
     # Dims of PBC's rdm should = Dims of OBC
-    rdm = rdm_PXP(BitStr{N, Int}, collect(1:6), ones(322))
+    rdm = rdm_PXP(BitStr{N, Int}, BitStr{div(N,2), Int},collect(1:div(N,2)), ones(322))
     @test size(rdm) == (21, 21)
     @test length(PXP_basis(BitStr{6, Int}, false)) == 21
 
@@ -44,7 +44,7 @@ using LinearAlgebra
     @test size(map_idx) == (322, 31)
     @test map_idx'*map_idx ≈ I(31)
 
-    rdm_K = rdm_PXP_K(BitStr{24, Int}, collect(1:12), ones(4341),0)
+    rdm_K = rdm_PXP_K(BitStr{24, Int}, BitStr{12, Int}, collect(1:12), ones(4341),0)
     @test size(rdm_K) == (377, 377)
     @test length(PXP_basis(BitStr{12, Int}, false)) == 377
 
@@ -83,14 +83,14 @@ using LinearAlgebra
     @test map_total2MSS'*map_total2MSS ≈ I(26)
 
     MSS_vec=MSS_vecs[:,12]
-    rdm_MSS = rdm_PXP_MSS(BitStr{N, Int}, collect(1:6), MSS_vec,0)
+    rdm_MSS = rdm_PXP_MSS(BitStr{N, Int}, BitStr{div(N,2), Int}, collect(1:6), MSS_vec,0)
     @test size(rdm_MSS) == (21, 21) == (length(PXP_basis(BitStr{6, Int}, false)) ,length(PXP_basis(BitStr{6, Int}, false)))
 
     # Fit the scar's central charge, may change depends on the machine and basic linear algebra package.
     splitlis = collect(1:N-1)
     EE_lis=zeros(length(splitlis))
     for m in eachindex(EE_lis)
-        subrho=rdm_PXP_MSS(BitStr{N, Int}, collect(1:splitlis[m]), MSS_vec, 0)
+        subrho=rdm_PXP_MSS(BitStr{N, Int}, BitStr{length(1:splitlis[m]), Int}, collect(1:splitlis[m]), MSS_vec, 0)
         EE_lis[m]=ee(subrho)
     end
 

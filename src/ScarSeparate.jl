@@ -45,6 +45,7 @@ function sep_scar_FSA(::Type{T}, energy::Vector{Float64},states::Matrix{Float64}
     # scar is already orthogonal to thermal states, so we do not need to do the gram_schmidt process. (Only one scar, as FSA expected)
     return scar,thermal
 end
+sep_scar_FSA(n::Int64, energy::Vector{Float64}, states::Matrix{Float64}) = sep_scar_FSA(BitStr{n, Int}, energy, states)
 
 function sep_scar_FSA_inv(::Type{T},energy::Vector{Float64},states::Matrix{Float64}) where {N, T <: BitStr{N}}
     indices=[index for (index,value) in enumerate(energy) if abs(value)<=1e-8]
@@ -86,6 +87,7 @@ function sep_scar_FSA_inv(::Type{T},energy::Vector{Float64},states::Matrix{Float
 
     # return scar,thermal
 end
+sep_scar_FSA_inv(n::Int64, energy::Vector{Float64}, states::Matrix{Float64}) = sep_scar_FSA_inv(BitStr{n, Int}, energy, states)
 
 function proj_Ob(energy::Vector{Float64},states::Matrix{Float64},Ob::Matrix{Float64})
     # Create the operator in the new basis of zero energy subspaces
@@ -228,7 +230,7 @@ function sep_scar_exact(::Type{T}, energy::Vector{Float64}, states::Matrix{Float
     return exact_scar, exact_scar_prime, thermal_ensemble
     
 end
-
+sep_scar_exact(n::Int64, energy::Vector{Float64}, states::Matrix{Float64}) = sep_scar_exact(BitStr{n, Int}, energy, states)
 
 function sep_scar_exact_translation(::Type{T}, energy::Vector{Float64}, states::Matrix{Float64}) where {N, T <: BitStr{N}}
     indices = [index for (index, value) in enumerate(energy) if abs(value) <= 1e-8]
@@ -300,3 +302,4 @@ function sep_scar_exact_translation(::Type{T}, energy::Vector{Float64}, states::
     return exact_scar, exact_scar_prime, total_thek0,total_thekpi
     
 end
+sep_scar_exact_translation(n::Int64, energy::Vector{Float64}, states::Matrix{Float64}) = sep_scar_exact_translation(BitStr{n, Int}, energy, states)
