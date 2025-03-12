@@ -57,7 +57,8 @@ function actingH_PXP(::Type{T}, n::T, pbc::Bool=true) where {N, T <: BitStr{N}}
     end
     return output
 end
-
+using BenchmarkTools
+@btime actingH_PXP(BitStr{300, Int},BitStr{300, Int}(0), true)
 function PXP_basis(::Type{T},pbc::Bool=true) where {N, T <: BitStr{N}}
     # Generate basis for PXP model, return both decimal and binary form, where we both consider PBC and OBC
     if pbc
@@ -93,6 +94,19 @@ end
 
 takeenviron(x, mask::BitStr{l}) where {l} = x & (~mask)
 takesystem(x, mask::BitStr{l}) where {l} = (x & mask)
+function find_indices(new_reduced_basis, sorted_basis, mask)
+    indices = []
+    for r in eachindex(sorted_basis)
+        value = takesystem(sorted_basis[r], mask)
+        index = searchsortedfirst(new_reduced_basis, value)  
+        if index <= length(new_reduced_basis) && new_reduced_basis[index] == value
+            push!(indices, index)  
+        else
+            push!(indices, false)  
+        end
+    end
+    return indices
+end
 function rdm_PXP(::Type{T}, ::Type{subT}, subsystems::Vector{Int64},state::Vector{ET}, pbc::Bool=true) where {N,T <: BitStr{N}, ET, l, subT <: BitStr{l}}
     # Usually subsystem indices count from the left.
     # subsystems = N .- subsystems .+1
@@ -125,15 +139,12 @@ function rdm_PXP(::Type{T}, ::Type{subT}, subsystems::Vector{Int64},state::Vecto
     reduced_dm = zeros(ET, (len, len))
     
     for i in 1:length(result_indices)-1
-        range = result_indices[i]:result_indices[i+1]-1
-        if length(range) == len
-            reduced_dm .+= view(state, range) * view(state, range)'
-        else            
-            # Get indices in the reduced basis
-            indices = [searchsortedfirst(new_reduced_basis, takesystem(sorted_basis[r], mask)) for r in range]
-            s = view(state, range)
-            view(reduced_dm, indices, indices) .+= s .* s'
-        end
+        range = result_indices[i]:result_indices[i+1]-1         
+        # Get indices in the reduced basis
+        # Here exists potential bug espeically when subsystems is not continuous slots, reduced total basis may not in constrained space.
+        indices = find_indices(new_reduced_basis, sorted_basis[range], mask)
+        s = view(state, range)
+        view(reduced_dm, indices, indices) .+= s .* s'
     end
     
     return reduced_dm
