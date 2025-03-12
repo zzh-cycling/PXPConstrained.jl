@@ -27,6 +27,7 @@ function Fibonacci_chain_PBC(::Type{T}) where {N, T <: BitStr{N}}
     return filtered_fib_chain
 end
 
+
 function actingH_PXP(::Type{T}, n::T, pbc::Bool=true) where {N, T <: BitStr{N}}
     # The type of n is DitStr{D, N, Int}, which is a binary string with length N in D-ary form.
     # Acting Hamiltonian on a given state in bitstr and return the output states in bitstr
@@ -171,30 +172,30 @@ function rdm_PXP_K(::Type{T}, subsystems::Vector{Int64}, state::Vector{Float64},
     return reduced_dm
 end
 
-takeleft(x, N::Int, l::Int) = x >> (N - l)
-takeright(x, l::Int) = x & ((1 << l) - 1)
-takeenviron(x, mask::BitStr{l}) where {l} = x & mask
-takesystem(x, mask::BitStr{l}) where {l} = ~(x & mask)
-function rdm_new(::Type{T}, ::Type{subT}, state::Vector{ET}, pbc::Bool=true) where {N,T <: BitStr{N}, ET, l, subT <: BitStr{l}}
+takeenviron(x, mask::BitStr{l}) where {l} = x & (~mask)
+takesystem(x, mask::BitStr{l}) where {l} = (x & mask)
+function rdm_new(::Type{T}, ::Type{subT}, subsystems::Vector{Int64},state::Vector{ET}, pbc::Bool=true) where {N,T <: BitStr{N}, ET, l, subT <: BitStr{l}}
+    # Usually subsystem indices count from the left.
+    # subsystems = N .- subsystems .+1
+    mask = bmask(T, subsystems...)
     basis = PXP_basis(T, pbc)
     @assert length(basis) == length(state) "state length is expected to be $(length(basis)), but got $(length(state))"
-
-    sorted_basis = sort(basis, by = x -> (takeright(x, l), takeleft(x, N, l)))
+    sorted_basis = sort(basis, by = x -> (takeenviron(x, mask), takesystem(x, mask)))
 
     # Keep track of indices where the key changes
     result_indices = Int[]
     current_key = -1
     for (idx, i) in enumerate(sorted_basis)
-        key = takeright(i, l)  # Get lower l bits
+        key = takeenviron(i, mask)  # Get lower l bits
         if key != current_key
             push!(result_indices, idx)
             current_key = key
         end
     end
+    
     # Add the final index to get complete ranges
     push!(result_indices, length(sorted_basis) + 1)
     
-    # Create reduced density matrix
     reduced_basis = PXP_basis(subT, false)
     len = length(reduced_basis)
     new_reduced_basis = Vector{T}(undef, len)
@@ -210,7 +211,7 @@ function rdm_new(::Type{T}, ::Type{subT}, state::Vector{ET}, pbc::Bool=true) whe
             reduced_dm .+= view(state, range) * view(state, range)'
         else            
             # Get indices in the reduced basis
-            indices = [searchsortedfirst(reduced_basis, takeleft(sorted_basis[r], N, l)) for r in range]
+            indices = [searchsortedfirst(new_reduced_basis, takesystem(sorted_basis[r], mask)) for r in range]
             s = view(state, range)
             view(reduced_dm, indices, indices) .+= s .* s'
         end
@@ -492,8 +493,9 @@ function PXP_MSS_Ham(::Type{T}, k::Int, inv::Int64=1) where {N, T <: BitStr{N}}
 end
 
 function wf_time_evolution(psi0::Vector{T}, times::Vector{Float64}, energy::Vector{Float64},states::Matrix{Float64}) where {T <: Real}
+    wflis=Vector{Vector{ComplexF64}}(undef,length(times))
     c = states'*psi0
-    exp_factors = [exp.(-1im * energy * t) for t in times]
+    exp_factors = [exp.(-1im * t * energy) for t in times]
     
     # Use multi-threading for parallel computation
     Threads.@threads for i in eachindex(times)
