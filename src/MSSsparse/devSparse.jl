@@ -19,11 +19,6 @@ function fbcp(n::Int)
     return filter(c -> iszero((c >> (n-1)) & (c & 1)), fbco(n))
 end
 
-using BenchmarkTools
-@btime fbcp(32)
-
-
-
 function apply_pxp_flip_sparse(N::Int64, state::Int, pbc::Bool=true)
     output = Int[]
     # Handle flips for middle positions (from position 1 to N-2)
@@ -61,6 +56,7 @@ function apply_pxp_flip_sparse(N::Int64, state::Int, pbc::Bool=true)
     end
     return output
 end
+
 
 # Binary cyclic shift function for quantum state translation
 function cyclebits_sparse(L::Int, state::Int64, n_translations::Int)
@@ -143,7 +139,6 @@ function PXP_MSS_basis_sparse(L::Int, k::Int)
     MSS_dic = Dict{Int, Vector{Int}}()
     # List to store the number of unique states in each symmetry sector
     qlist = Vector{Int}(undef, 0)
-    @show basisK_int[1], L
     
     # Iterate through momentum basis states to construct MSS basis
     for i in eachindex(basisK_int)
@@ -171,7 +166,7 @@ end
 #for MSS_Dic,key：代表态（最小的那个等价态,value：所有通过平移操作可以得到的等价态（包括代表态本身）
 
 #correct sparse Hamiltonian
-function PXP_MSS_Ham_sparse(L::Int, k::Int, Omega::Float64=1.0)
+function PXP_MSS_Ham_sparse2(L::Int, k::Int, Omega::Float64=1.0)
     MSS_int, MSS_dic, qlist = PXP_MSS_basis_sparse(L, k)
     l = length(MSS_int)
     matrix_elements = Dict{Tuple{Int,Int}, Float64}()

@@ -1,6 +1,5 @@
 /Manifest.toml
 .vscode/
-main.jl
 
 *.jl.*.cov
 *.jl.cov

@@ -6,7 +6,7 @@ function Fibonacci_chain_OBC(::Type{T}) where {N, T <: BitStr{N}}
     # Generate Fibonacci chain for PXP model with open boundary condition
     fib_chain=[[T(0), T(1)],[T(0), T(1), T(2)]]
     for i in 3:N
-        push!(fib_chain,vcat([s << 1 for s in fib_chain[i-1]],[(s << 2 |  T(1)) for s in fib_chain[i-2]]))
+        push!(fib_chain,vcat([s << 1 for s in fib_chain[i-1]],[(s << 2 | T(1)) for s in fib_chain[i-2]]))
     end
     # each push we add a bit"0" or bit"01" to the end of the bit_string, and finally return the last element of the fib_chain
     return fib_chain[N]
@@ -14,51 +14,39 @@ end
 
 function Fibonacci_chain_PBC(::Type{T}) where {N, T <: BitStr{N}}
     # Generate Fibonacci chain  for PXP model with periodic boundary condition
-    chain=Fibonacci_chain_OBC(T)
-    filtered_fib_chain = T[]
-    mask = bmask(T, 1, N)
-    for s in chain
-        if allone(s, mask)
-            continue
-        else
-            push!(filtered_fib_chain, s)
-        end
-    end
-    return filtered_fib_chain
+    return filter(c -> iszero((c >> (N-1)) & (c & 1)), Fibonacci_chain_OBC(T))
 end
 
-
-function actingH_PXP(::Type{T}, n::T, pbc::Bool=true) where {N, T <: BitStr{N}}
+function actingH_PXP(::Type{T}, state::T, pbc::Bool=true) where {N, T <: BitStr{N}}
     # The type of n is DitStr{D, N, Int}, which is a binary string with length N in D-ary form.
     # Acting Hamiltonian on a given state in bitstr and return the output states in bitstr
     # Here need to note that the order of the bitstr is from right to left, which is different from the normal order.
     mask=bmask(T, N, N-2)
     fl=bmask(T, N-1)
-    output = [flip(n, fl >> (i-1)) for i in 1:N-2 if n & (mask >> (i-1)) == 0] # faster method
+    output = [flip(state, fl >> (i-1)) for i in 1:N-2 if state & (mask >> (i-1)) == 0] # faster method
 
     if pbc
-        if n[2]==0 && n[N]==0
-            flip_str=flip(n,bmask(T, 1))
+        if state[2]==0 && state[N]==0
+            flip_str=flip(state,bmask(T, 1))
             push!(output,flip_str)
         end
-        if n[1]==0 && n[N-1]==0
-            flip_str=flip(n,bmask(T, N))
+        if state[1]==0 && state[N-1]==0
+            flip_str=flip(state,bmask(T, N))
             push!(output,flip_str)
         end
     else
-        if n[N-1]==0
-            flip_str=flip(n,bmask(T, N))
+        if state[N-1]==0
+            flip_str=flip(state,bmask(T, N))
             push!(output,flip_str)
         end
-        if n[2]==0
-            flip_str=flip(n,bmask(T, 1))
+        if state[2]==0
+            flip_str=flip(state,bmask(T, 1))
             push!(output,flip_str)
         end
     end
     return output
 end
-using BenchmarkTools
-@btime actingH_PXP(BitStr{300, Int},BitStr{300, Int}(0), true)
+
 function PXP_basis(::Type{T},pbc::Bool=true) where {N, T <: BitStr{N}}
     # Generate basis for PXP model, return both decimal and binary form, where we both consider PBC and OBC
     if pbc
@@ -86,14 +74,8 @@ function PXP_Ham(::Type{T}, pbc::Bool=true) where {N, T <: BitStr{N}}
 
     return H
 end
+PXP_Ham(N::Int, pbc::Bool=true) = PXP_Ham(BitStr{N, Int}, pbc)
 
-function myreadbit(bit::BitStr, index::Vector{Int64})
-    # read the indexed bit of a bit string
-    mapreduce(el -> readbit(bit, el[2]) << (el[1]-1), |, enumerate(index))
-end
-
-takeenviron(x, mask::BitStr{l}) where {l} = x & (~mask)
-takesystem(x, mask::BitStr{l}) where {l} = (x & mask)
 function find_indices(new_reduced_basis, sorted_basis, mask)
     indices = []
     for r in eachindex(sorted_basis)
@@ -107,6 +89,9 @@ function find_indices(new_reduced_basis, sorted_basis, mask)
     end
     return indices
 end
+
+takeenviron(x, mask::BitStr{l}) where {l} = x & (~mask)
+takesystem(x, mask::BitStr{l}) where {l} = (x & mask)
 function rdm_PXP(::Type{T}, ::Type{subT}, subsystems::Vector{Int64},state::Vector{ET}, pbc::Bool=true) where {N,T <: BitStr{N}, ET, l, subT <: BitStr{l}}
     # Usually subsystem indices count from the left.
     # subsystems = N .- subsystems .+1
@@ -150,8 +135,8 @@ function rdm_PXP(::Type{T}, ::Type{subT}, subsystems::Vector{Int64},state::Vecto
     return reduced_dm
 end
 
-function rdm_PXP(n::Int, subsystems::Vector{Int64}, state::Vector{ET}, pbc::Bool=true) where {ET}
-    return rdm_PXP(BitStr{n, Int}, BitStr{length(subsystems), Int}, subsystems, state, pbc)
+function rdm_PXP(N::Int, subsystems::Vector{Int64}, state::Vector{ET}, pbc::Bool=true) where {ET}
+    return rdm_PXP(BitStr{N, Int}, BitStr{length(subsystems), Int}, subsystems, state, pbc)
 end
 
 function iso_total2K(::Type{T}, k::Int64) where {N, T <: BitStr{N}}
@@ -181,7 +166,7 @@ function iso_total2K(::Type{T}, k::Int64) where {N, T <: BitStr{N}}
 
     return iso
 end
-iso_total2K(n::Int, k::Int64) = iso_total2K(BitStr{n, Int}, k)
+iso_total2K(N::Int, k::Int64) = iso_total2K(BitStr{N, Int}, k)
 
 function rdm_PXP_K(::Type{T}, ::Type{subT}, subsystems::Vector{Int64},state::Vector{ET}, k::Int64) where {N,T <: BitStr{N}, ET, l, subT <: BitStr{l}}
     iso = iso_total2K(T, k)
@@ -191,8 +176,8 @@ function rdm_PXP_K(::Type{T}, ::Type{subT}, subsystems::Vector{Int64},state::Vec
     return reduced_dm
 end
 
-function rdm_PXP_K(n::Int, subsystems::Vector{Int64},state::Vector{ET}, k::Int64) where {ET}
-    return rdm_PXP_K(BitStr{n, Int}, BitStr{length(subsystems), Int}, subsystems, state, k)
+function rdm_PXP_K(N::Int, subsystems::Vector{Int64},state::Vector{ET}, k::Int64) where {ET}
+    return rdm_PXP_K(BitStr{N, Int}, BitStr{length(subsystems), Int}, subsystems, state, k)
 end
 
 function iso_K2MSS(::Type{T}, k::Int64, inv::Int64=1) where {N, T <: BitStr{N}}
@@ -243,7 +228,7 @@ function iso_K2MSS(::Type{T}, k::Int64, inv::Int64=1) where {N, T <: BitStr{N}}
 
     return iso
 end
-iso_K2MSS(n::Int, k::Int64, inv::Int64=1) = iso_K2MSS(BitStr{n, Int}, k, inv)
+iso_K2MSS(N::Int, k::Int64, inv::Int64=1) = iso_K2MSS(BitStr{N, Int}, k, inv)
 
 function iso_total2MSS(::Type{T}, k::Int64, inv::Int64=1) where {N, T <: BitStr{N}}
     # Function to map the total basis to the MSS space basis, k can only equal to 0 or N/2(pi)
@@ -251,7 +236,7 @@ function iso_total2MSS(::Type{T}, k::Int64, inv::Int64=1) where {N, T <: BitStr{
 
     return iso
 end
-iso_total2MSS(n::Int, k::Int64, inv::Int64=1) = iso_total2MSS(BitStr{n, Int}, k, inv)
+iso_total2MSS(N::Int, k::Int64, inv::Int64=1) = iso_total2MSS(BitStr{N, Int}, k, inv)
 
 function rdm_PXP_MSS(::Type{T}, ::Type{subT}, subsystems::Vector{Int64},state::Vector{ET}, k::Int64, inv::Int64=1) where {N,T <: BitStr{N}, ET, l, subT <: BitStr{l}}
     iso = iso_total2MSS(T, k, inv)
@@ -261,8 +246,8 @@ function rdm_PXP_MSS(::Type{T}, ::Type{subT}, subsystems::Vector{Int64},state::V
     return reduced_dm
 end
 
-function rdm_PXP_MSS(n::Int64, subsystems::Vector{Int64},state::Vector{ET}, k::Int64, inv::Int64=1) where {ET}
-    return rdm_PXP_MSS(BitStr{n, Int}, BitStr{length(subsystems), Int}, subsystems, state, k, inv)
+function rdm_PXP_MSS(N::Int64, subsystems::Vector{Int64},state::Vector{ET}, k::Int64, inv::Int64=1) where {ET}
+    return rdm_PXP_MSS(BitStr{N, Int}, BitStr{length(subsystems), Int}, subsystems, state, k, inv)
     
 end
 
@@ -282,7 +267,7 @@ function inversion_matrix(::Type{T}) where {N, T <: BitStr{N}}
    
     return Imatrix
 end
-inversion_matrix(n::Int) = inversion_matrix(BitStr{n, Int})
+inversion_matrix(N::Int) = inversion_matrix(BitStr{N, Int})
 
 function cyclebits(state::T, n_translations::Int) where {N, T <: BitStr{N}}
     """
@@ -292,12 +277,6 @@ function cyclebits(state::T, n_translations::Int) where {N, T <: BitStr{N}}
     We also use this order: system size, state, number of translations
     """
     return (state << n_translations) % (2^N - 1)
-
-    # n_translations = mod(n_translations, N)
-    # shifted_right = state >> n_translations
-    # shifted_left = (state << (N - n_translations)) & ((1 << N) - 1)
-    
-    # rotated_n = shifted_right | shifted_left
 end
 
 function get_representative(state::T) where {N, T <: BitStr{N}}
@@ -346,7 +325,7 @@ function PXP_K_basis(::Type{T}, k::Int64) where {N, T <: BitStr{N}}
 
     return basisK, basis_dic
 end
-PXP_K_basis(n::Int, k::Int64) = PXP_K_basis(BitStr{n, Int}, k)
+PXP_K_basis(N::Int, k::Int64) = PXP_K_basis(BitStr{N, Int}, k)
 
 
 function PXP_MSS_basis(::Type{T}, k::Int64,inv::Int64=1) where {N, T <: BitStr{N}}
@@ -391,7 +370,7 @@ function PXP_MSS_basis(::Type{T}, k::Int64,inv::Int64=1) where {N, T <: BitStr{N
     end
     
 end
-PXP_MSS_basis(n::Int, k::Int64, inv::Int64=1) = PXP_MSS_basis(BitStr{n, Int}, k, inv)
+PXP_MSS_basis(N::Int, k::Int64, inv::Int64=1) = PXP_MSS_basis(BitStr{N, Int}, k, inv)
 
 function PXP_K_Ham(::Type{T}, k::Int, Omega::Float64=1.0) where {N, T <: BitStr{N}}
     """
@@ -420,6 +399,7 @@ function PXP_K_Ham(::Type{T}, k::Int, Omega::Float64=1.0) where {N, T <: BitStr{
     H=(H+H')/2
     return H
 end
+PXP_K_Ham(N::Int, k::Int, Omega::Float64=1.0) = PXP_K_Ham(BitStr{N, Int}, k, Omega)
 
 function PXP_MSS_Ham(::Type{T}, k::Int, inv::Int64=1) where {N, T <: BitStr{N}}
     """
@@ -450,7 +430,6 @@ function PXP_MSS_Ham(::Type{T}, k::Int, inv::Int64=1) where {N, T <: BitStr{N}}
         end
         H=real(H)
         H = (H + H') / 2
-        return H
     else
         MSS, MSS_dic = PXP_MSS_basis(T, k, -1)
 
@@ -470,10 +449,12 @@ function PXP_MSS_Ham(::Type{T}, k::Int, inv::Int64=1) where {N, T <: BitStr{N}}
             end
         end
         H=real(H)
-        H = (H + H') / 2
-        return H
+        H = (H + H') / 2  
     end
+
+    return H
 end
+PXP_MSS_Ham(N::Int, k::Int, inv::Int64=1) = PXP_MSS_Ham(BitStr{N, Int}, k, inv) 
 
 function wf_time_evolution(psi0::Vector{T}, times::Vector{Float64}, energy::Vector{Float64},states::Matrix{Float64}) where {T <: Real}
     wflis=Vector{Vector{ComplexF64}}(undef,length(times))
@@ -504,7 +485,7 @@ function translation_matrix(::Type{T}) where {N, T <: BitStr{N}}
     
     return Mat
 end
-translation_matrix(n::Int) = translation_matrix(BitStr{n, Int})
+translation_matrix(N::Int) = translation_matrix(BitStr{N, Int})
 
 function actingHplus_PXP(::Type{T}, rowstate::T) where {N, T <: BitStr{N}}
     mask = bmask(T, N, N-2)
@@ -597,6 +578,7 @@ function iso_total2FSA(::Type{T}) where {N, T <: BitStr{N}}
     end
     return statelis
 end
+iso_total2FSA(N::Int) = iso_total2FSA(BitStr{N, Int})
 
 function PXP_FSA_Ham(::Type{T}) where {N, T <: BitStr{N}}
     """
@@ -623,4 +605,4 @@ function PXP_FSA_Ham(::Type{T}) where {N, T <: BitStr{N}}
     return H
 end
 PXP_FSA_Ham(n::Int) = PXP_FSA_Ham(BitStr{n, Int})
-# Such behavior is allowed, though it isn't type stable, but it is not a performance bottleneck(aditional cost is deserved).
+# Such behavior is allowed, it is not a performance bottleneck(additional cost is deserved).

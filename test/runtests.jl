@@ -14,3 +14,7 @@ end
 @testset "Observables" begin
     include("./test_Observables.jl")
 end
+
+@testset "PXP_MSS_Ham_sparse" begin
+    include("./test_PXPSparse.jl")
+end
