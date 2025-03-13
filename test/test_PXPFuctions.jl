@@ -96,14 +96,4 @@ using LinearAlgebra
 
     cent, _= fitpage_curve(EE_lis; mincut=1)
     @test isapprox(cent, 0.587, atol=1e-2)
-
-    # Test the time evolution of the wavefunction, it should be normalized under evolution, and the energy should be conserved.
-    psi0=zeros(322)
-    psi0[1]=1
-    energy, states = eigen(H)
-    times = collect(range(0, stop=10, length=100))
-    wflis = wf_time_evolution(psi0, times, energy, states)
-    @test length(wflis) == 100
-    @test isapprox([norm(wf) for wf in wflis], ones(100), atol = 1e-10)
-    @test isapprox([norm(wf'*H*wf) for wf in wflis], zeros(100), atol = 1e-10)
 end

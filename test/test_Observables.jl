@@ -85,3 +85,9 @@ using LinearAlgebra
     @test isapprox(W,0.19446000922247064, atol=1e-3)
 end
 
+@testset "ergotropy in MSS" begin
+    state=zeros(455)
+    state[end]=1
+    @test ergotropy_PXP_MSS_state(20, 10, state) ≈ 0
+    total_state=iso_total2MSS(20, state)
+end

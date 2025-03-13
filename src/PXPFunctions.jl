@@ -456,18 +456,6 @@ function PXP_MSS_Ham(::Type{T}, k::Int, inv::Int64=1) where {N, T <: BitStr{N}}
 end
 PXP_MSS_Ham(N::Int, k::Int, inv::Int64=1) = PXP_MSS_Ham(BitStr{N, Int}, k, inv) 
 
-function wf_time_evolution(psi0::Vector{T}, times::Vector{Float64}, energy::Vector{Float64},states::Matrix{Float64}) where {T <: Real}
-    wflis=Vector{Vector{ComplexF64}}(undef,length(times))
-    c = states'*psi0
-    exp_factors = [exp.(-1im * t * energy) for t in times]
-    
-    # Use multi-threading for parallel computation
-    Threads.@threads for i in eachindex(times)
-        wflis[i] = states * (c .* exp_factors[i])
-    end
-    return wflis
-end
-
 function myprint(io::IO, xs...)
     println(io, xs..., '\n')
     flush(io)
