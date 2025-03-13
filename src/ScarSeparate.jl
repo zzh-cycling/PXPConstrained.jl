@@ -1,9 +1,8 @@
 ITensors.set_warn_order(60)
 
 function proj_FSA(::Type{T}) where {N, T <: BitStr{N}}
-    """
-    Generate the projection matrix for the FSA subspace, which should equals to identity matrix in FSA subspace. Meanwhile not equal to identity matrix in the total Hilbert space. Input N is the size of the system, return the projection matrix.
-    """
+#Generate the projection matrix for the FSA subspace, which should equals to identity matrix in FSA subspace.
+#Meanwhile not equal to identity matrix in the total Hilbert space. Input N is the size of the system, return the projection matrix.
     energy,states=eigen(PXP_FSA_Ham(T))
 
     return states*states'
@@ -90,8 +89,9 @@ end
 sep_scar_FSA_inv(n::Int64, energy::Vector{Float64}, states::Matrix{Float64}) = sep_scar_FSA_inv(BitStr{n, Int}, energy, states)
 
 function proj_Ob(energy::Vector{Float64},states::Matrix{Float64},Ob::Matrix{Float64})
-    # Create the operator in the new basis of zero energy subspaces
-    # Actually we find that the non correct overlap between the eigenstates and Z2states is due to the superposition of the degenrate scar states and thermal states in zero modes subspace. Not mainly due to the inversion symmetry.
+# Create the operator in the new basis of zero energy subspaces
+# Actually we find that the non correct overlap between the eigenstates and Z2states is due to the superposition of the degenrate scar states 
+#and thermal states in zero modes subspace. Not mainly due to the inversion symmetry.
     indices=[index for (index,value) in enumerate(energy) if abs(value)<=1e-8]
     iso_0modes=states[:,indices]
     projected_matrix = iso_0modes'*Ob*iso_0modes
@@ -130,8 +130,8 @@ end
 
 
 function proj_invZ2(::Type{T}, states::Matrix{Float64},indices::Vector{Int64}) where {N, T <: BitStr{N}}
-    # Create the operator in the new basis
-    # Actually we find that the non correct overlap between the eigenstates and Z2states is due to the superposition of the degenrate scar states and thermal states in zero modes subspace. Not mainly due to the inversion symmetry.
+# Create the operator in the new basis
+# Actually we find that the non correct overlap between the eigenstates and Z2states is due to the superposition of the degenrate scar states and thermal states in zero modes subspace. Not mainly due to the inversion symmetry.
     basis = PXP_basis(T)
     projected_matrix = zeros(length(indices), length(indices))
     for i in eachindex(indices)

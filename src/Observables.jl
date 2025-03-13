@@ -14,9 +14,8 @@ function ee(subrm::Matrix{Float64})
 end
 
 function ee_PXP_idx(N::Int64, splitlis::Vector{Int64}, idx::Int64) 
-    """
-    only calculate half the EE list
-    """
+#only calculate half the EE list
+
     energy, states= eigen(PXP_Ham(BitStr{N, Int}))
     idx_state=states[:,idx]
     EE_lis=zeros(div(length(splitlis)+1,2))
@@ -124,11 +123,11 @@ function qfi(Ob::Matrix{Float64}, state::Vector{T}) where {T <: Real}
 end
 
 function domain_wall(::Type{T}, pbc::Bool=true) where {N, T <: BitStr{N}}
-    """
-    :param N: Number of sites
-    :return: domain_wall_density diagonal elements
-    The eigenvectors of this operator are going from -N to N, increasing by 2, totally N+1 eigenvectors. Number of each eigenvalues is N choose k, where k is the number of domain walls when we consider total Hilbert space. Defined as sum_i Z_i =1/2 (-1)^(i+1) * Z_i, we aim for spin systems.(S_Z= 1/2 Pauli Z)
-    """
+#param N: Number of sites
+#return: domain_wall_density diagonal elements
+#The eigenvectors of this operator are going from -N to N, increasing by 2, totally N+1 eigenvectors. Number of each eigenvalues is N choose k, 
+#where k is the number of domain walls when we consider total Hilbert space. Defined as sum_i Z_i =1/2 (-1)^(i+1) * Z_i, we aim for spin systems.(S_Z= 1/2 Pauli Z)
+ 
     
     basis = PXP_basis(T, pbc)
     l=length(basis)
@@ -146,10 +145,8 @@ end
 domain_wall(N::Int64, pbc::Bool=true) = domain_wall(BitStr{N, Int}, pbc)
 
 function particlenumber(::Type{T},pbc::Bool=true) where {N, T <: BitStr{N}}
-    """
-    :param N: Number of sites
-    :return: Particle number operator
-    """
+#param N: Number of sites,return: Particle number operator
+
     basis = PXP_basis(T, pbc)
     l=length(basis)
     P = zeros((l, l))
@@ -163,10 +160,7 @@ end
 particlenumber(N::Int64, pbc::Bool=true) = particlenumber(BitStr{N, Int}, pbc)
 
 function on_siten(::Type{T}, i::Int64,pbc::Bool=true)  where {N, T <:BitStr{N}}
-    """
-    :param N: Number of sites
-    :return: Particle number operator
-    """
+#param N: Number of sites,return: Particle number operator
     basis  = PXP_basis(T,pbc)
     l=length(basis)
     P = zeros((l, l))

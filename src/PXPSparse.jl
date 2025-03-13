@@ -21,10 +21,8 @@ end
 PXP_Ham_sparse(N::Int64, pbc::Bool=true) = PXP_Ham_sparse(BitStr{N, Int}, pbc)
 
 function PXP_K_Ham_sparse(::Type{T}, k::Int, Omega::Float64=1.0) where {N, T <: BitStr{N}}
-    """
-    :params: a int of lattice number, momentum of system and interaction strength of system which default to be 1
-    :return: the Hamiltonian matrix in given K space
-    """
+#params: a int of lattice number, momentum of system and interaction strength of system which default to be 1
+#return: the Hamiltonian matrix in given K space
     basisK, basis_dic = PXP_K_basis(T, k)
     l = length(basisK)
     omegak = exp(2im * π * k / N)
@@ -57,10 +55,8 @@ end
 PXP_K_Ham_sparse(N::Int64, k::Int) = PXP_K_Ham_sparse(BitStr{N, Int}, k)
 
 function PXP_MSS_Ham_sparse(::Type{T}, k::Int, inv::Int64=1) where {N, T <: BitStr{N}}
-    """
-    :params: a int of lattice number, momentum of system and interaction strength of system which default to be 1, k is the momentum of system, only can take 0 or pi, inv is the inversion of the Hamiltonian, only 1 or -1.
-    :return: the Hamiltonian matrix in given maximum symmetry space
-    """    
+    #params: a int of lattice number, momentum of system and interaction strength of system which default to be 1, k is the momentum of system, only can take 0 or pi, inv is the inversion of the Hamiltonian, only 1 or -1.
+    #return: the Hamiltonian matrix in given maximum symmetry space   
     # omegak = exp(2im * π * k / N)
     omegak= k == 0 ? 1 : -1
     
@@ -120,9 +116,7 @@ end
 PXP_MSS_Ham_sparse(N::Int64, k::Int) = PXP_MSS_Ham_sparse(BitStr{N, Int}, k)
 
 # function iso_total2K_sparse(::Type{T}, k::Int64) where {N, T <: BitStr{N}}
-#     """
-#     Function to map the total basis to the K space basis, actually is the isometry, defined as W'*W=I, W*W'=P, P^2=P
-#     """
+# Function to map the total basis to the K space basis, actually is the isometry, defined as W'*W=I, W*W'=P, P^2=P
 #     basis = PXP_basis(T)
 
 #     k_dic = Dict{Int, Vector{Int64}}()
@@ -147,11 +141,8 @@ PXP_MSS_Ham_sparse(N::Int64, k::Int) = PXP_MSS_Ham_sparse(BitStr{N, Int}, k)
 #     return iso
 # end
 function iso_total2K_sparse(::Type{T}, k::Int64) where {N, T <: BitStr{N}}
-    """
-    Function to map the total basis to the K space basis, actually is the isometry, defined as W'*W=I, W*W'=P, P^2=P
-    """
+#Function to map the total basis to the K space basis, actually is the isometry, defined as W'*W=I, W*W'=P, P^2=P
     basis = PXP_basis(T)
-
     k_dic = Dict{Int, Vector{Int64}}()
     basisK = Vector{T}(undef, 0)
     # Categorize basis states by their representative
@@ -200,10 +191,10 @@ end
 iso_total2K_sparse(N::Int, k::Int64) = iso_total2K_sparse(BitStr{N, Int}, k)
 
 
+
 function iso_K2MSS_sparse(::Type{T}, k::Int64, inv::Int64=1) where {N, T <: BitStr{N}}
-    """
-    Function to map the MSS basis to the K space basis
-    """
+#Function to map the MSS basis to the K space basis
+
     basis = PXP_basis(T)
     basisK, k_dic = PXP_K_basis(T, k)
 
