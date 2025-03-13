@@ -57,6 +57,7 @@ function PXP_basis(::Type{T},pbc::Bool=true) where {N, T <: BitStr{N}}
     sorted_basis=sort(basis)
     return sorted_basis
 end
+PXP_basis(N::Int, pbc::Bool=true) = PXP_basis(BitStr{N, Int}, pbc)
 
 function PXP_Ham(::Type{T}, pbc::Bool=true) where {N, T <: BitStr{N}}
     # Generate Hamiltonian for PXP model, automotically contain pbc or obc
@@ -77,17 +78,22 @@ end
 PXP_Ham(N::Int, pbc::Bool=true) = PXP_Ham(BitStr{N, Int}, pbc)
 
 function find_indices(new_reduced_basis, sorted_basis, mask)
-    indices = []
+    indices = Int[]           # 用于存储 sorted_basis 的索引
+    bit_vector = [1==0 for i in eachindex(sorted_basis)] 
+
     for r in eachindex(sorted_basis)
         value = takesystem(sorted_basis[r], mask)
-        index = searchsortedfirst(new_reduced_basis, value)  
+        index = searchsortedfirst(new_reduced_basis, value)
+
         if index <= length(new_reduced_basis) && new_reduced_basis[index] == value
-            push!(indices, index)  
+            push!(indices, index) 
+            bit_vector[r] = true  
         else
-            push!(indices, false)  
+            push!(indices, 0)      
         end
     end
-    return indices
+
+    return indices, bit_vector 
 end
 
 takeenviron(x, mask::BitStr{l}) where {l} = x & (~mask)
@@ -127,9 +133,9 @@ function rdm_PXP(::Type{T}, ::Type{subT}, subsystems::Vector{Int64},state::Vecto
         range = result_indices[i]:result_indices[i+1]-1         
         # Get indices in the reduced basis
         # Here exists potential bug espeically when subsystems is not continuous slots, reduced total basis may not in constrained space.
-        indices = find_indices(new_reduced_basis, sorted_basis[range], mask)
-        s = view(state, range)
-        view(reduced_dm, indices, indices) .+= s .* s'
+        indices, exists = find_indices(new_reduced_basis, sorted_basis[range], mask)
+        s = view(state, range[exists])
+        view(reduced_dm, indices[exists], indices[exists]) .+= s .* s'
     end
     
     return reduced_dm
@@ -146,7 +152,7 @@ function iso_total2K(::Type{T}, k::Int64) where {N, T <: BitStr{N}}
     basis = PXP_basis(T)
 
     k_dic = Dict{Int, Vector{Int64}}()
-
+    basisK = Vector{T}(undef, 0)
     for i in eachindex(basis)
         state=basis[i]
         category = get_representative(state)[1]
@@ -157,11 +163,22 @@ function iso_total2K(::Type{T}, k::Int64) where {N, T <: BitStr{N}}
         end
     end
     
-    iso = zeros((length(basis), length(keys(k_dic))))
+    for j in eachindex(basis)
+        n=basis[j]
+        RS = get_representative(n)[1]
+        if RS == n && (k * length(k_dic[RS])) % N == 0
+            push!(basisK, n)
+        end
+    end
+
     
-    for (i, state_index) in enumerate(values(k_dic))
-        l = length(state_index)
-        iso[state_index, i] .= 1/sqrt(l)
+
+    iso = zeros((length(basis), length(keys(basisK))))
+    
+    for (i, state) in enumerate(basisK)
+        state_indices = k_dic[state]  
+        l = length(state_indices)
+        iso[state_indices, i] .= 1/sqrt(l)
     end
 
     return iso

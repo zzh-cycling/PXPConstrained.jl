@@ -80,7 +80,7 @@ using LinearAlgebra
     W = (GS_energy - passive_energy)/16
     @test isapprox(W, 0.16915174104683417, atol=1e-6)
 
-    GS_energy, subenergy, passive_energy = ergotropy_PXP_idx_OBC(16, 8, 1200)
+    GS_energy, subenergy, passive_energy = ergotropy_PXP_idx(16, 8, 1200, false)
     W = (GS_energy - passive_energy)/16
     @test isapprox(W,0.19446000922247064, atol=1e-3)
 end
@@ -91,3 +91,4 @@ end
     @test ergotropy_PXP_MSS_state(20, 10, state) ≈ 0
     total_state=iso_total2MSS(20, state)
 end
+

@@ -153,7 +153,7 @@ function iso_total2K_sparse(::Type{T}, k::Int64) where {N, T <: BitStr{N}}
     basis = PXP_basis(T)
 
     k_dic = Dict{Int, Vector{Int64}}()
-
+    basisK = Vector{T}(undef, 0)
     # Categorize basis states by their representative
     for i in eachindex(basis)
         state = basis[i]
@@ -165,15 +165,24 @@ function iso_total2K_sparse(::Type{T}, k::Int64) where {N, T <: BitStr{N}}
         end
     end
 
+    for j in eachindex(basis)
+        n=basis[j]
+        RS = get_representative(n)[1]
+        if RS == n && (k * length(k_dic[RS])) % N == 0
+            push!(basisK, n)
+        end
+    end
+
     # Initialize sparse matrix
     num_states = length(basis)
-    num_categories = length(keys(k_dic))
+    num_categories = length(keys(basisK))
     rows = Vector{Int64}[]
     cols = Vector{Int64}[]
     vals = Vector{Float64}[]
 
     # Fill the sparse matrix with isometry values
-    for (i, state_indices) in enumerate(values(k_dic))
+    for (i, state) in enumerate(basisK)
+        state_indices = k_dic[state]  
         l = length(state_indices)
         push!(rows, state_indices)
         push!(cols, fill(i, l))

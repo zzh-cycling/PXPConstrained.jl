@@ -43,6 +43,30 @@ using LinearAlgebra
     map_idx = iso_total2K(BitStr{12, Int},0)
     @test size(map_idx) == (322, 31)
     @test map_idx'*map_idx ≈ I(31)
+    u = iso_total2K(14, 7)
+    P = u*u'
+    @test isapprox(P*P, P, atol=1e-10)
+    @test isapprox(u'*u, I(size(u, 2)), atol=1e-8)
+
+    u = iso_total2MSS(14, 7)
+    P = u*u'
+    @test isapprox(P*P, P, atol=1e-10)
+    @test isapprox(u'*u, I(size(u, 2)), atol=1e-10)
+
+    u = iso_total2MSS(14, 0)
+    P = u*u'
+    @test isapprox(P*P, P, atol=1e-10)
+    @test isapprox(u'*u, I(size(u, 2)), atol=1e-10)
+
+    u = iso_total2K(14, 0)
+    P = u*u'
+    @test isapprox(P*P, P, atol=1e-10)
+    @test isapprox(u'*u, I(size(u, 2)), atol=1e-10)
+
+    u = iso_K2MSS(14, 0)
+    P = u*u'
+    @test isapprox(P*P, P, atol=1e-10)
+    @test isapprox(u'*u, I(size(u, 2)), atol=1e-10)
 
     rdm_K = rdm_PXP_K(BitStr{24, Int}, BitStr{12, Int}, collect(1:12), ones(4341),0)
     @test size(rdm_K) == (377, 377)
