@@ -36,11 +36,8 @@ function wf_time_evolution_mss(L::Int, k::Int64, psi0::Vector{ET}, t_values::Vec
 end
 
 function rotated_psi_state(::Type{T}, θ::Float64) where {N, T<: BitStr{N}}
-    """
-    :params: the particlenumber of the space, and rotation angle θ for the Z2 state
-    :return: the state rotated by on site rotation exp(i θ/2 Y)
-    """
-
+#params: the particlenumber of the space, and rotation angle θ for the Z2 state
+#return: the state rotated by on site rotation exp(i θ/2 Y)
     basis=PXP_basis(T)
     γ = tan(θ/2)
     rotated_state = zeros(length(basis))
@@ -53,10 +50,8 @@ end
 rotated_psi_state(N::Int64, θ::Float64) = rotated_psi_state(BitStr{N, Int}, θ)
 
 function rotated_psi_state_mss(::Type{T}, θ::Float64) where {N, T<: BitStr{N}}
-    """
-    :params: a state in maximum symmetry space, and the momentum of the state
-    :return: the state in total space
-    """
+#params: a state in maximum symmetry space, and the momentum of the state
+#return: the state in total space
     MSS, MSS_dic = PXP_MSS_basis(T, k)
     γ = tan(θ/2)
     rotated_state = zeros(length(MSS))
