@@ -97,29 +97,36 @@ function rotated_psi_state_mss(::Type{T}, k::Int64, θ::Real) where {N, T<: BitS
     γ = tan(θ/2)
     rotated_state = zeros(ComplexF64, length(MSS))
     
-    # 对于k=0的情况，需要特殊处理
-        for (i, base) in enumerate(MSS)
-            # 计算原始振幅
-            amp1 = amplitude_rotated(base, γ, N)
-            
-            # 计算反演后的振幅
-            inverted_base = flip(base, bmask(T, 1:N))
-            amp2 = amplitude_rotated(inverted_base, γ, N)
-            
-            # 根据公式，对称约束空间的振幅是两者的和
-            rotated_state[i] = (amp1 + amp2) * cos(θ/2)^N
+    # 获取K空间基矢
+    basisK, k_dic = PXP_K_basis(T, k)
+    
+    # 找出在K空间但不在MSS空间的基矢
+    Klis_not_in_MSS = filter(x -> !(x in MSS), basisK)
+
+    
+    # 对这些基矢进行反演操作
+    Ilis = [get_representative(breflect(x))[1] for x in Klis_not_in_MSS]
+    
+    amp1 = amplitude_rotated(BitStr{N, Int}(0), γ, N)
+    rotated_state[1] = amp1 * cos(θ/2)^N
+    for (i, base) in enumerate(MSS[2:end])
+        Y= sqrt(length(k_dic[base]))/N
+        @show length(k_dic[base])
+        amp1 = amplitude_rotated(base, γ, N)
+        
+        # 计算反演后的振幅
+        inverted_base = flip(base, bmask(T, 1:N))
+        amp2 = amplitude_rotated(inverted_base, γ, N)
+    
+        # 判断是否为反演不变的态
+        if base in Ilis
+            # 对于反演变的态，使用1/2 归一化
+            rotated_state[i] = Y*N*(amp1 + amp2) * cos(θ/2)^N
+        else
+            # 对于反演不变化的态，使用 1/√2 归一化
+            rotated_state[i] = Y*N/2 * (amp1 + amp2) * cos(θ/2)^N
         end
-        
-        rotated_state = rotated_state 
-    # else
-    #     # 对于其他动量值，使用原始方法
-    #     for (i, base) in enumerate(MSS)
-    #         rotated_state[i] = amplitude_rotated(base, γ, N) * cos(θ/2)^N
-    #     end
-        
-    #     # 归一化
-    #     rotated_state = rotated_state / norm(rotated_state)
-    # end
+    end
     
     return rotated_state
 end

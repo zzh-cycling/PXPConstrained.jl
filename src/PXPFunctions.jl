@@ -179,7 +179,7 @@ function iso_total2K(::Type{T}, k::Int64) where {N, T <: BitStr{N}}
         iso[state_indices, i] .= 1/sqrt(l)
     end
 
-    return iso
+    return iso,k_dic
 end
 iso_total2K(N::Int, k::Int64) = iso_total2K(BitStr{N, Int}, k)
 
