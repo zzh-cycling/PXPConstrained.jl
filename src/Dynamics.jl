@@ -35,72 +35,6 @@ function wf_time_evolution_mss(L::Int, k::Int64, psi0::Vector{ET}, t_values::Vec
     return wavefunctions
 end
 
-# function rotated_psi_state(::Type{T}, θ::Float64) where {N, T<: BitStr{N}}
-# #params: the particlenumber of the space, and rotation angle θ for the Z2 state
-# #return: the state rotated by on site rotation exp(i θ/2 Y)
-#     basis=PXP_basis(T)
-#     γ = tan(θ/2)
-#     rotated_state = zeros(length(basis))
-#     for (i,base) in enumerate(basis)
-#         # base #to be filled
-#         # rotated_state[i]=base # to be filled
-#         # 计算旋转后的态在基态上的振幅
-#         amplitude = 1.0
-#         for j in 1:N
-#             if base[j] == 0  # 如果第j位是0
-#                 # 对应于 |0⟩ 变为 |0⟩ + γ|1⟩
-#                 if j % 2 == 1  # 奇数位
-#                     amplitude *= 1.0
-#                 else  # 偶数位
-#                     amplitude *= -γ
-#                 end
-#             else  # 如果第j位是1
-#                 # 对应于 |1⟩ 变为 -γ|0⟩ + |1⟩
-#                 if j % 2 == 1  # 奇数位
-#                     amplitude *= γ
-#                 else  # 偶数位
-#                     amplitude *= 1.0
-#                 end
-#             end
-#         end
-#         rotated_state[i] = amplitude
-#     end
-#     return rotated_state.*cos(θ/2)^N
-# end
-# rotated_psi_state(N::Int64, θ::Float64) = rotated_psi_state(BitStr{N, Int}, θ)
-
-# function rotated_psi_state_mss(::Type{T},θ::Float64) where {N, T<: BitStr{N}}
-# #params: a state in maximum symmetry space, and the momentum of the state
-# #return: the state in total space
-#     MSS, MSS_dic = PXP_MSS_basis(T, k)
-#     γ = tan(θ/2)
-#     rotated_state = zeros(length(MSS))
-#     for (i,base) in enumerate(MSS)
-#         # 计算旋转后的态在基态上的振幅
-#         amplitude = 1.0
-#         for j in 1:N
-#             if base[j] == 0  # 如果第j位是0
-#                 # 对应于 |0⟩ 变为 |0⟩ + γ|1⟩
-#                 if j % 2 == 1  # 奇数位
-#                     amplitude *= 1.0
-#                 else  # 偶数位
-#                     amplitude *= -γ
-#                 end
-#             else  # 如果第j位是1
-#                 # 对应于 |1⟩ 变为 -γ|0⟩ + |1⟩
-#                 if j % 2 == 1  # 奇数位
-#                     amplitude *= γ
-#                 else  # 偶数位
-#                     amplitude *= 1.0
-#                 end
-#             end
-#         end
-#         rotated_state[i] = amplitude
-#     end
-#     return rotated_state.*cos(θ/2)^N
-# end
-
-
 function rotated_psi_state(::Type{T}, θ::Real) where {N, T<: BitStr{N}}
 #params: the particlenumber of the space, and rotation angle θ for the Z2 state
 #return: the state rotated by on site rotation exp(i θ/2 Y)
@@ -187,6 +121,6 @@ function rotated_psi_state_mss(::Type{T}, k::Int64, θ::Real) where {N, T<: BitS
     #     rotated_state = rotated_state / norm(rotated_state)
     # end
     
-    return rotated_state/= norm(rotated_state)
+    return rotated_state
 end
 rotated_psi_state_mss(N::Int64, k::Int64, θ::Real) = rotated_psi_state_mss(BitStr{N, Int}, k, θ)
