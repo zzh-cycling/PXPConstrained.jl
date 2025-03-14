@@ -87,9 +87,7 @@ function find_indices(new_reduced_basis, sorted_basis, mask)
 
         if index <= length(new_reduced_basis) && new_reduced_basis[index] == value
             push!(indices, index) 
-            bit_vector[r] = true  
-        else
-            push!(indices, 0)      
+            bit_vector[r] = true    
         end
     end
 
@@ -98,51 +96,98 @@ end
 
 takeenviron(x, mask::BitStr{l}) where {l} = x & (~mask)
 takesystem(x, mask::BitStr{l}) where {l} = (x & mask)
-function rdm_PXP(::Type{T}, ::Type{subT}, subsystems::Vector{Int64},state::Vector{ET}, pbc::Bool=true) where {N,T <: BitStr{N}, ET, l, subT <: BitStr{l}}
-    # Usually subsystem indices count from the left.
-    # subsystems = N .- subsystems .+1
-    mask = bmask(T, subsystems...)
+function rdm_PXP(::Type{T}, ::Type{subT}, subsystems::Vector{Vector{Int64}},state::Vector{ET}, pbc::Bool=true) where {N,T <: BitStr{N}, ET, l, subT <: BitStr{l}}
+    # Usually subsystem indices count from the right of binary string.
+    # The function is to take common environment parts of the total basis, get the index of system parts in reduced basis, and then calculate the reduced density matrix.
+
     basis = PXP_basis(T, pbc)
     @assert length(basis) == length(state) "state length is expected to be $(length(basis)), but got $(length(state))"
-    sorted_basis = sort(basis, by = x -> (takeenviron(x, mask), takesystem(x, mask)))
+    
+    # Get the reduced basis in total basis'representation
+    if length(subsystems) == 1
+        subsystems = subsystems[1]
+        mask = bmask(T, subsystems...)
+        reduced_basis = getfield.(PXP_basis(subT, false), :buf)
+        len = length(reduced_basis)
+        # Initialize the reduced density matrix
+        reduced_dm = zeros(ET, (len, len))
+        
 
-    # Keep track of indices where the key changes
-    result_indices = Int[]
-    current_key = -1
-    for (idx, i) in enumerate(sorted_basis)
-        key = takeenviron(i, mask)  # Get lower l bits
-        if key != current_key
-            push!(result_indices, idx)
-            current_key = key
+        sorted_basis = sort(basis, by = x -> (takeenviron(x, mask), takesystem(x, mask))) #first sort by environment, then by system. The order of environment doesn't matter.
+        # Keep track of indices where the key changes
+        result_indices = Int[]
+        current_key = -1
+        for (idx, i) in enumerate(sorted_basis)
+            key = takeenviron(i, mask)  # Get system l bits
+            if key != current_key
+                push!(result_indices, idx)
+                current_key = key
+            end
         end
-    end
-    
-    # Add the final index to get complete ranges
-    push!(result_indices, length(sorted_basis) + 1)
-    
-    reduced_basis = PXP_basis(subT, false)
-    len = length(reduced_basis)
-    new_reduced_basis = Vector{T}(undef, len)
-    for (i,basis) in enumerate(reduced_basis)
-        new_reduced_basis[i]  = sum(T.([basis...] .<< (subsystems.-1)))
-    end
-    # Initialize the reduced density matrix
-    reduced_dm = zeros(ET, (len, len))
-    
-    for i in 1:length(result_indices)-1
-        range = result_indices[i]:result_indices[i+1]-1         
-        # Get indices in the reduced basis
-        # Here exists potential bug espeically when subsystems is not continuous slots, reduced total basis may not in constrained space.
-        indices, exists = find_indices(new_reduced_basis, sorted_basis[range], mask)
-        s = view(state, range[exists])
-        view(reduced_dm, indices[exists], indices[exists]) .+= s .* s'
+        # Add the final index to get complete ranges
+        push!(result_indices, length(sorted_basis) + 1)
+
+
+        for i in 1:length(result_indices)-1
+            range = result_indices[i]:result_indices[i+1]-1
+            if length(range) == len
+                reduced_dm .+= view(state, range) * view(state, range)'
+            else            
+                # Get indices in the reduced basis
+                indices=map(x -> searchsortedfirst(reduced_basis, x), takesystem.(sorted_basis[range], mask))
+                s = view(state, range)
+                view(reduced_dm, indices, indices) .+= s .* s'
+            end
+        end
+    else
+        lengthlis=length.(subsystems)
+        subsystems=sort(vcat(subsystems...))
+        mask = bmask(T, subsystems...)
+        reduced_basis_lis=[PXP_basis(i, false) for i in lengthlis]
+        new_reduced_basis = [takeenviron(i, mask) for i in basis]
+        # Initialize the reduced density matrix
+        reduced_dm = zeros(ET, (len, len))
+
+
+        sorted_basis = sort(basis, by = x -> (takeenviron(x, mask), takesystem(x, mask))) #first sort by environment, then by system. The order of environment doesn't matter.
+        # Keep track of indices where the key changes
+        result_indices = Int[]
+        current_key = -1
+        for (idx, i) in enumerate(sorted_basis)
+            key = takeenviron(i, mask)  # Get system l bits
+            if key != current_key
+                push!(result_indices, idx)
+                current_key = key
+            end
+        end
+        # Add the final index to get complete ranges
+        push!(result_indices, length(sorted_basis) + 1)
+
+
+        for i in 1:length(result_indices)-1
+            range = result_indices[i]:result_indices[i+1]-1         
+            # Get indices in the reduced basis
+            # Here exists potential bug espeically when subsystems is not continuous slots, reduced total basis may not in constrained space.
+            indices, exists = find_indices(new_reduced_basis, sorted_basis[range], mask)
+            s = view(state, range[exists])
+            if norm(s)!=0
+                @show range, indices, exists, length(exists), s
+            end
+            
+            view(reduced_dm, indices, indices) .+= s .* s'
+        end
     end
     
     return reduced_dm
 end
 
-function rdm_PXP(N::Int, subsystems::Vector{Int64}, state::Vector{ET}, pbc::Bool=true) where {ET}
-    return rdm_PXP(BitStr{N, Int}, BitStr{length(subsystems), Int}, subsystems, state, pbc)
+function rdm_PXP(N::Int, subsystems::Vector{Vector{Int64}}, state::Vector{ET}, pbc::Bool=true) where {ET}
+    if length(subsystems) == 1
+        return rdm_PXP(BitStr{N, Int}, BitStr{length(subsystems[1]), Int}, subsystems, state, pbc)
+    else
+        pass
+    end
+
 end
 
 function iso_total2K(::Type{T}, k::Int64) where {N, T <: BitStr{N}}
