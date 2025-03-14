@@ -57,7 +57,6 @@ function PXP_basis(::Type{T},pbc::Bool=true) where {N, T <: BitStr{N}}
     sorted_basis=sort(basis)
     return sorted_basis
 end
-PXP_basis(N::Int, pbc::Bool=true) = PXP_basis(BitStr{N, Int}, pbc)
 
 function PXP_Ham(::Type{T}, pbc::Bool=true) where {N, T <: BitStr{N}}
     # Generate Hamiltonian for PXP model, automotically contain pbc or obc
@@ -191,9 +190,8 @@ function rdm_PXP(N::Int, subsystems::Vector{Vector{Int64}}, state::Vector{ET}, p
 end
 
 function iso_total2K(::Type{T}, k::Int64) where {N, T <: BitStr{N}}
-    """
-    Function to map the total basis to the K space basis, actually is the isometry, defined as W'*W=I, W*W'=P, P^2=P
-    """
+#Function to map the total basis to the K space basis, actually is the isometry, defined as W'*W=I, W*W'=P, P^2=P
+
     basis = PXP_basis(T)
 
     k_dic = Dict{Int, Vector{Int64}}()
@@ -226,7 +224,7 @@ function iso_total2K(::Type{T}, k::Int64) where {N, T <: BitStr{N}}
         iso[state_indices, i] .= 1/sqrt(l)
     end
 
-    return iso
+    return iso,k_dic
 end
 iso_total2K(N::Int, k::Int64) = iso_total2K(BitStr{N, Int}, k)
 
@@ -243,9 +241,8 @@ function rdm_PXP_K(N::Int, subsystems::Vector{Int64},state::Vector{ET}, k::Int64
 end
 
 function iso_K2MSS(::Type{T}, k::Int64, inv::Int64=1) where {N, T <: BitStr{N}}
-    """
-    Function to map the MSS basis to the K space basis
-    """
+#Function to map the MSS basis to the K space basis
+
     basis = PXP_basis(T)
     basisK, k_dic = PXP_K_basis(T, k)
 
@@ -332,20 +329,18 @@ end
 inversion_matrix(N::Int) = inversion_matrix(BitStr{N, Int})
 
 function cyclebits(state::T, n_translations::Int) where {N, T <: BitStr{N}}
-    """
-    :params: t is an integer, N is the length of the binary string
-    :n_translations: number of positions to shift
-    :return: the binary left shift
-    We also use this order: system size, state, number of translations
-    """
+#params: t is an integer, N is the length of the binary string
+#n_translations: number of positions to shift
+#return: the binary left shift
+#We also use this order: system size, state, number of translations
+
     return (state << n_translations) % (2^N - 1)
 end
 
 function get_representative(state::T) where {N, T <: BitStr{N}}
-    """
-    Finds representative and representative translation for a state.
-    State should be a decimal integer.
-    """
+#Finds representative and representative translation for a state.
+#State should be a decimal integer.
+
     representative = state
     translation = 0
     for n_translation_sites in 0:N-1
@@ -359,10 +354,9 @@ function get_representative(state::T) where {N, T <: BitStr{N}}
 end
 
 function PXP_K_basis(::Type{T}, k::Int64) where {N, T <: BitStr{N}}
-    """
-    :params: a int of lattice number and momentum of system
-    :return: computational basis in given momentum kinetically constrained subspace with decimal int form in PXP model
-    """
+#params: a int of lattice number and momentum of system
+#return: computational basis in given momentum kinetically constrained subspace with decimal int form in PXP model
+
     basisK = Vector{T}(undef, 0)
     basis = PXP_basis(T)
 
@@ -391,10 +385,9 @@ PXP_K_basis(N::Int, k::Int64) = PXP_K_basis(BitStr{N, Int}, k)
 
 
 function PXP_MSS_basis(::Type{T}, k::Int64,inv::Int64=1) where {N, T <: BitStr{N}}
-    """
-    :params: a int of lattice number and momentum of system, we have considered the inversion symmetry
-    :return: computational basis in given momentum inversion symmetry subspace with decimal int form
-    """
+#params: a int of lattice number and momentum of system, we have considered the inversion symmetry
+#return: computational basis in given momentum inversion symmetry subspace with decimal int form
+
     # MSS is the list of states in the maximum symmetry sector
     MSS = Vector{T}(undef, 0)
     basisK, basis_dic = PXP_K_basis(T, k)
@@ -435,10 +428,9 @@ end
 PXP_MSS_basis(N::Int, k::Int64, inv::Int64=1) = PXP_MSS_basis(BitStr{N, Int}, k, inv)
 
 function PXP_K_Ham(::Type{T}, k::Int, Omega::Float64=1.0) where {N, T <: BitStr{N}}
-    """
-    :params: a int of lattice number, momentum of system and interaction strength of system which default to be 1
-    :return: the Hamiltonian matrix in given K space
-    """
+#params: a int of lattice number, momentum of system and interaction strength of system which default to be 1
+#return: the Hamiltonian matrix in given K space
+
     basisK, basis_dic = PXP_K_basis(T, k)
     l = length(basisK)
     omegak = exp(2im * π * k / N)
@@ -464,10 +456,9 @@ end
 PXP_K_Ham(N::Int, k::Int, Omega::Float64=1.0) = PXP_K_Ham(BitStr{N, Int}, k, Omega)
 
 function PXP_MSS_Ham(::Type{T}, k::Int, inv::Int64=1) where {N, T <: BitStr{N}}
-    """
-    :params: a int of lattice number, momentum of system and interaction strength of system which default to be 1
-    :return: the Hamiltonian matrix in given maximum symmetry space
-    """    
+#params: a int of lattice number, momentum of system and interaction strength of system which default to be 1
+#return: the Hamiltonian matrix in given maximum symmetry space
+  
     omegak = exp(2im * π * k / N)
     
     if inv==1
@@ -631,17 +622,14 @@ end
 iso_total2FSA(N::Int) = iso_total2FSA(BitStr{N, Int})
 
 function PXP_FSA_Ham(::Type{T}) where {N, T <: BitStr{N}}
-    """
-    This function is based on Forward Scattering Approximation, utilizes the function PXP_FSA_basis to build the basis, and project the PXP Hamiltonian to its FSA subspace. It has an input parameter N, the system size, and outputs the FSA matrix.
+#This function is based on Forward Scattering Approximation, utilizes the function PXP_FSA_basis to build the basis, 
+#and project the PXP Hamiltonian to its FSA subspace. It has an input parameter N, the system size, and outputs the FSA matrix.
+# Arguments
+#N::Int: The system size.
+#Returns
+#`Matrix{Float64}`: The FSA Hamiltonian matrix.
+# Examples
 
-    # Arguments
-    - `N::Int`: The system size.
-
-    # Returns
-    - `Matrix{Float64}`: The FSA Hamiltonian matrix.
-
-    # Examples
-    """
     Ham = PXP_Ham(T, true)
     file_path = "a/Users/cycling/Documents/projects/big_data/scar_thermal_FSA/iso_FSA/iso_total2FSA$(N).jld"
 
