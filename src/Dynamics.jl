@@ -43,7 +43,7 @@ function rotated_psi_state(::Type{T}, θ::Real) where {N, T<: BitStr{N}}
     rotated_state = zeros(length(basis))
     
     for (i, base) in enumerate(basis)
-        rotated_state[i] = amplitude_rotated(base, γ, N)
+        rotated_state[i] = even_zeros(base, γ)
     end
     
     return rotated_state .* cos(θ/2)^N
@@ -100,36 +100,18 @@ function rotated_psi_state_mss(::Type{T}, k::Int64, θ::Real) where {N, T<: BitS
     # return: the state in total space
     MSS, MSS_dic, qlist = PXP_MSS_basis(T, k)
     γ = tan(θ/2)
-    rotated_state = zeros(Float64, length(MSS))
-    @show qlist
     basisK, k_dic = PXP_K_basis(T, k)
     
-    # # Find out the basis of basisK not in MSS.
-    # Klis_not_in_MSS = filter(x -> !(x in MSS), basisK)
+    rotated_state = zeros(Float64, length(MSS))
 
-
-    # Ilis = [get_representative(breflect(x))[1] for x in Klis_not_in_MSS]
-    # @show [i.buf for i in MSS]
-    # @show [i.buf for i in basisK]
-    # @show [i.buf for i in Klis_not_in_MSS]
-    # @show [i.buf for i in Ilis]
-    # zero state is translational symmetric and inversion symmetric, so the amplitude is only amp1.
-    
     for (i, base) in enumerate(MSS)
         Y= sqrt(length(k_dic[base]))/N
-        Z= sqrt(qlist[i])*Y/4
+        Z= sqrt(qlist[i])*Y/2
+        @show base,length(k_dic[base]), Y, Z, qlist[i]
         amp1 = even_zeros(base, γ)
         amp2 = even_ones(base, γ)
         
         rotated_state[i]=Z*N*(amp1+amp2)
-        # if base in Ilis
-        #     # The basis in Ilis, normalize the amplitude by YN/sqrt(2)
-        #     rotated_state[i] = Y*N/sqrt(2)*(amp1 + amp2)
-        #     @show Y, length(k_dic[base])
-        # else
-        #     # The basis in MSS, normalize the amplitude by YN/2
-        #     rotated_state[i] = Y*N/2 * (amp1 + amp2) 
-        # end
     end
     
     return rotated_state.* cos(θ/2)^N
