@@ -41,30 +41,50 @@ end
     P=u*u'
     @test isapprox(P*P, P, atol=1e-10)
     @test u'*u ≈ I(size(u, 2))
+    @test Matrix(u) ≈ iso_total2K(12, 6)
+
     u= iso_total2K_sparse(12, 0)
     P=u*u'
     @test isapprox(P*P, P, atol=1e-10)
     @test u'*u ≈ I(size(u, 2))
+    @test Matrix(u) ≈ iso_total2K(12, 0)
+    @test u[1,1] ≈ 1.0
+    @test u[end,end] ≈ 1/√2
+    @test u[233,end] ≈ 1/√2
+
     u = iso_K2MSS_sparse(12, 6)
     P=u*u'
     @test isapprox(P*P, P, atol=1e-10)
     @test u'*u ≈ I(size(u, 2))
+    @test Matrix(u) ≈ iso_K2MSS(12, 6)
+
     u = iso_K2MSS_sparse(12, 0)
     P=u*u'
     @test isapprox(P*P, P, atol=1e-10)
     @test u'*u ≈ I(size(u, 2))
+    @test Matrix(u) ≈ iso_K2MSS(12, 0)
+    non_zero_lis = reshape(mapslices(col -> count(x -> x != 0, col), u, dims=1), 26)
+    @test non_zero_lis == PXP_MSS_basis(12, 0)[3]
+
     u = iso_total2MSS_sparse(14, 7)
     P=u*u'
     @test isapprox(P*P, P, atol=1e-10)
     @test u'*u ≈ I(size(u, 2))
+    @test Matrix(u) ≈ iso_total2MSS(14, 7)
+
     u = iso_total2MSS_sparse(14, 0)
     P=u*u'
     @test isapprox(P*P, P, atol=1e-10)
     @test u'*u ≈ I(size(u, 2))
+    @test Matrix(u) ≈ iso_total2MSS(14, 0)
+    @test u[1,1] ≈ 1.0
+    @test u[end,end] ≈ 1/√2
+    
     u = iso_total2MSS_sparse(14, 0, -1)
     P=u*u'
     @test isapprox(P*P, P, atol=1e-10)
     @test u'*u ≈ I(size(u, 2))
+    @test Matrix(u) ≈ iso_total2MSS(14, 0, -1)
 end
 
 

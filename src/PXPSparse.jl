@@ -174,7 +174,7 @@ function iso_K2MSS_sparse(::Type{T}, k::Int64, inv::Int64=1) where {N, T <: BitS
     basisK, k_dic = PXP_K_basis(T, k)
 
     MSS_dic = Dict{Int, Vector{Int64}}()
-
+    qlist = Vector{Int}(undef, 0)
     # Below procedure is to collapse the extra basis in K space that can be converted mutually to MSS space.
     if inv==1
         for i in eachindex(basisK)
@@ -182,13 +182,14 @@ function iso_K2MSS_sparse(::Type{T}, k::Int64, inv::Int64=1) where {N, T <: BitS
             # here we calculate the representative state of the inversion of n
             nR = get_representative(breflect(n))[1]
             if n <= min(nR, n)
-                if haskey(MSS_dic, nR)
-                    push!(MSS_dic[nR], i)
-                else
-                    MSS_dic[nR] = [i]
-                end
+                push!(qlist, length(Set([n, nR])))
             end
-            
+            n = min(nR, n)
+            if haskey(MSS_dic, n)
+                push!(MSS_dic[n], i)
+            else
+                MSS_dic[n] = [i]
+            end
         end
 
     else
@@ -196,9 +197,13 @@ function iso_K2MSS_sparse(::Type{T}, k::Int64, inv::Int64=1) where {N, T <: BitS
             n = basisK[i]
             nR = get_representative(breflect(n))[1]
             if n != nR
-                if n <= min(nR, n)
+                n = min(nR, n)
+                if haskey(MSS_dic, n)
+                    push!(MSS_dic[n], i)
+                else
                     MSS_dic[n] = [i]
                 end
+                push!(qlist, 2)
             end
         end    
         
@@ -211,8 +216,9 @@ function iso_K2MSS_sparse(::Type{T}, k::Int64, inv::Int64=1) where {N, T <: BitS
     cols = Vector{Int64}[]
     vals = Vector{Float64}[]
 
+    MSS_dic=sort(MSS_dic)
     for (i, state_indices) in enumerate(values(MSS_dic))
-        l = length(state_indices)
+        l = qlist[i]
         push!(rows, state_indices)
         push!(cols, fill(i, l))
         push!(vals, fill(1.0 / sqrt(l), l))

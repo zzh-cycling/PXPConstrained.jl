@@ -18,3 +18,7 @@ end
 @testset "PXP_MSS_Ham_sparse" begin
     include("./test_PXPSparse.jl")
 end
+
+@test "Dynamics" begin
+    include("./test_Dynamics.jl")
+end 

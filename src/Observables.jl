@@ -20,7 +20,7 @@ function ee_PXP_idx(N::Int64, splitlis::Vector{Int64}, idx::Int64)
     idx_state=states[:,idx]
     EE_lis=zeros(div(length(splitlis)+1,2))
     for m in 1:div(length(splitlis)+1,2)
-        subidx=rdm_PXP(N, collect(1:splitlis[m]), idx_state)
+        subidx=rdm_PXP(N, [collect(1:splitlis[m])], idx_state)
         EE_lis[m]=ee(subidx)
     end
     EE_lis=[EE_lis; sort(EE_lis[1:div(length(splitlis)-1,2)],rev=true)]
@@ -30,7 +30,7 @@ end
 function ee_PXP_state(N::Int64,splitlis::Vector{Int64},state::Vector{ET}) where {ET}
     EE_lis=zeros(length(splitlis))
     for m in eachindex(EE_lis)
-        subrho=rdm_PXP(N, collect(1:splitlis[m]), state)
+        subrho=rdm_PXP(N, [collect(1:splitlis[m])], state)
         EE_lis[m]=ee(subrho)
     end
     return EE_lis
@@ -54,9 +54,9 @@ function mutual_information(N::Int64, subsystems::Tuple{Vector{Int64}, Vector{In
     A, B = subsystems
     # MI formula defined as: I(A:B) = S_A + S_B - S_AB
     # Calculate the reduced density matrices
-    ρ_A = rdm_PXP(N, A, state)
-    ρ_B = rdm_PXP(N, B, state)
-    ρ_AB = rdm_PXP(N, vcat(A,B), state)
+    ρ_A = rdm_PXP(N, [A], state)
+    ρ_B = rdm_PXP(N, [B], state)
+    ρ_AB = rdm_PXP(N, [A, B], state)
     # Calculate the Von Neumann entropies
     S_A = ee(ρ_A)
     S_B = ee(ρ_B)
@@ -74,15 +74,15 @@ function tri_mutual_information(N::Int64, subsystems::Tuple{Vector{Int64}, Vecto
     # TMI formula defined as: I(A:B:C) = S_A + S_B + S_C - S_AB - S_BC - S_AC + S_ABC
     
     @time begin 
-    ρ_A = rdm_PXP(N, A, state)
-    ρ_B = rdm_PXP(N, B, state)
-    ρ_C = rdm_PXP(N, C, state)
+    ρ_A = rdm_PXP(N, [A], state)
+    ρ_B = rdm_PXP(N, [B], state)
+    ρ_C = rdm_PXP(N, [C], state)
 
-    ρ_AB = rdm_PXP(N, vcat(A,B), state)
-    ρ_BC = rdm_PXP(N, vcat(B,C), state)
-    ρ_AC = rdm_PXP(N, vcat(A,C), state)
+    ρ_AB = rdm_PXP(N, [A,B], state)
+    ρ_BC = rdm_PXP(N, [B,C], state)
+    ρ_AC = rdm_PXP(N, [A,C], state)
     
-    ρ_ABC = rdm_PXP(N, vcat(A,B,C), state)
+    ρ_ABC = rdm_PXP(N, [A,B,C], state)
     end
     myprint(stdout,"rho complete")
     
@@ -179,7 +179,7 @@ function ergotropy_PXP_idx(N::Int64, l::Int64, idx::Int64, pbc::Bool=true)
     subenergy, substates = eigen(HA)
     
     state = states[:,idx]
-    subrho = rdm_PXP(N, collect(1:l), state, pbc) 
+    subrho = rdm_PXP(N, [collect(1:l)], state, pbc) 
     GS_energy=tr(subrho*HA)
 
     spectrum=eigvals(subrho)
@@ -192,7 +192,7 @@ end
 function ergotropy_PXP_state(N::Int64, l::Int64,  state::Vector{ET}, pbc::Bool=true) where {ET}
     HA=PXP_Ham(BitStr{l, Int}, false)
     subenergy, substates= eigen(HA)
-    subrho = rdm_PXP(N, collect(1:l), state, pbc) 
+    subrho = rdm_PXP(N, [collect(1:l)], state, pbc) 
 
     GS_energy=tr(subrho*HA)
     spectrum=eigvals(subrho)
@@ -206,7 +206,7 @@ function ergotropy_PXP_MSS_state(L::Int, l::Int, state::Vector{T}, k::Int=0) whe
     HA = PXP_Ham(l, false)
     subenergy, substates = eigen(HA)
     
-    subrho = rdm_PXP_MSS(L, collect(1:l), state, k)
+    subrho = rdm_PXP_MSS(L, [collect(1:l)], state, k)
     
     GS_energy = tr(subrho * HA)
     spectrum = eigvals(subrho)

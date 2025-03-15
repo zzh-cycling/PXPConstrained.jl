@@ -1,6 +1,7 @@
 using Test
 using PXPConstrained, BitBasis 
 using LinearAlgebra
+using Yao: arrayreg, density_matrix, von_neumann_entropy, expect, matblock
 
 @testset "Observables" begin
     # This is the natural order index for scar state in PXP model's eigen
@@ -23,12 +24,6 @@ using LinearAlgebra
     cent_page, _ = ee_PXP_scaling_fig(N, states[:,3], "Page")
     @test isapprox(cent_cc, 0.19684135629232746, atol=1e-3) 
     @test cent_page > 0
-
-    # calculate the FSA tmi and mi.
-    A, B, C = collect(1:3), collect(4:6), collect(7:9)
-    scar, thermal = sep_scar_FSA(N, energy, states)
-    @test isapprox(tri_mutual_information(N, (A, B, C), scar)/log(2), 0.85760514, atol=1e-6)
-    @test isapprox(mutual_information(N, (A, C), scar), 0.97392703, atol=1e-6)
 
     # The qfi_dw of Z2 state should be 0
     z2state=zeros(322)
@@ -85,10 +80,55 @@ using LinearAlgebra
     @test isapprox(W,0.19446000922247064, atol=1e-3)
 end
 
+@testset "tmi,mi" begin
+    # calculate the FSA tmi and mi.
+    N=12
+    energy, states= eigen(PXP_Ham(N))
+    A, B, C = collect(1:3), collect(4:6), collect(7:9)
+    scar, thermal = sep_scar_FSA(N, energy, states)
+    scar_total=zeros(2^12)
+    scar_total[[i.buf+1 for i in PXP_basis(12)]]=scar
+    @test norm(scar_total) ≈ 1
+    
+    reg = arrayreg(scar_total)
+    ρ_A = density_matrix(reg, A)
+    ρ_B = density_matrix(reg, B)
+    ρ_C = density_matrix(reg, C)
+    ρ_AB = density_matrix(reg, vcat(A, B))
+    ρ_BC = density_matrix(reg, vcat(B, C))
+    ρ_AC = density_matrix(reg, vcat(A, C))
+    ρ_ABC = density_matrix(reg, vcat(A, B, C))
+    
+    S_A= von_neumann_entropy(ρ_A)
+    S_B= von_neumann_entropy(ρ_B)
+    S_C= von_neumann_entropy(ρ_C)
+    S_AB= von_neumann_entropy(ρ_AB)
+    S_BC= von_neumann_entropy(ρ_BC)
+    S_AC= von_neumann_entropy(ρ_AC)
+    S_ABC= von_neumann_entropy(ρ_ABC)
+    # Calculate the mutual information
+    I_ABC = S_A + S_B + S_C - S_AB - S_BC - S_AC + S_ABC
+    
+    # Calculate the mutual information
+    I_AB = S_A + S_C - S_AC
+    @test isapprox(I_AB, 0.97392703, atol=1e-6)
+    @test isapprox(I_ABC/log(2), 0.85760514, atol=1e-6)
+    # @test isapprox(tri_mutual_information(N, (A, B, C), scar)/log(2), 0.85760514, atol=1e-6)
+    # @test isapprox(mutual_information(N, (A, C), scar), 0.97392703, atol=1e-6)
+end
+
 @testset "ergotropy in MSS" begin
     state=zeros(455)
     state[end]=1
-    @test ergotropy_PXP_MSS_state(20, 10, state) ≈ 0
-    total_state=iso_total2MSS(20, state)
+    GS_energy, subenergy, passive_energy= ergotropy_PXP_MSS_state(20, 10, state)
+    W = (GS_energy - passive_energy)/20
+    @test isapprox(W, 0.28935025927242286, atol=1e-6)
+    total_state=iso_total2MSS(20, 0)*state
+    GS_energy1, subenergy1, passive_energy1= ergotropy_PXP_state(20, 10, total_state)
+    W = (GS_energy1 - passive_energy1)/20
+    @test isapprox(W, 0.28935025927242286, atol=1e-6)
+    @test isapprox(GS_energy, GS_energy1, atol=1e-6)
+    @test isapprox(passive_energy, passive_energy1, atol=1e-6)
+    @test isapprox(subenergy, subenergy1, atol=1e-6)
 end
 
