@@ -99,6 +99,22 @@ end
     ρ_AC = density_matrix(reg, vcat(A, C))
     ρ_ABC = density_matrix(reg, vcat(A, B, C))
     
+    valsA=filter(x -> !isapprox(x, 0.0; atol=1e-10), eigvals(ρ_A.state))
+    valsB=filter(x -> !isapprox(x, 0.0; atol=1e-10), eigvals(ρ_B.state))
+    valsC=filter(x -> !isapprox(x, 0.0; atol=1e-10), eigvals(ρ_C.state))
+    valsAB=filter(x -> !isapprox(x, 0.0; atol=1e-10), eigvals(ρ_AB.state))
+    valsBC=filter(x -> !isapprox(x, 0.0; atol=1e-10), eigvals(ρ_BC.state))
+    valsAC=filter(x -> !isapprox(x, 0.0; atol=1e-10), eigvals(ρ_AC.state))
+    valsABC=filter(x -> !isapprox(x, 0.0; atol=1e-10), eigvals(ρ_ABC.state))
+    @test valsA ≈ valsB ≈ valsC  ≈ valsABC
+    @test eigvals(rdm_PXP(N, [A], scar)) ≈ valsA
+    # @test eigvals(rdm_PXP(N, [B], scar)) ≈ valsB
+    # @test eigvals(rdm_PXP(N, [C], scar)) ≈ valsC
+    # @test eigvals(rdm_PXP(N, [A, B], scar)) ≈ valsAB
+    # @test eigvals(rdm_PXP(N, [B, C], scar)) ≈ valsBC
+    # @test eigvals(rdm_PXP(N, [A, C], scar)) ≈ valsAC
+    # @test eigvals(rdm_PXP(N, [A, B, C], scar)) ≈ valsABC
+    
     S_A= von_neumann_entropy(ρ_A)
     S_B= von_neumann_entropy(ρ_B)
     S_C= von_neumann_entropy(ρ_C)
