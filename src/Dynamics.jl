@@ -107,11 +107,10 @@ function rotated_psi_state_mss(::Type{T}, k::Int64, θ::Real) where {N, T<: BitS
     for (i, base) in enumerate(MSS)
         Y= sqrt(length(k_dic[base]))/N
         Z= sqrt(qlist[i])*Y/2
-        @show base,length(k_dic[base]), Y, Z, qlist[i]
         amp1 = even_zeros(base, γ)
         amp2 = even_ones(base, γ)
         
-        rotated_state[i]=Z*N*(amp1+amp2)
+        rotated_state[i]=Z*N*sqrt(2)*(amp1+amp2)
     end
     
     return rotated_state.* cos(θ/2)^N
