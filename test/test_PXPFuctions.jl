@@ -180,3 +180,55 @@ end
     @test PXPConstrained.connected_components(v) == [[1, 2], [4, 5], [7]]
     @test PXPConstrained.connected_components([1,2,3,7,8,9]) == [[1, 2, 3], [7, 8, 9]]
 end
+
+@testset "mapstate" begin
+    kstatez2 = zeros(31); kstatez2[end] = 1
+    kstate0 = zeros(31); kstate0[1] = 1
+    kstate1 = zeros(31); kstate1[2] = 1
+
+    totalZ2 = mapstate_K2total(12, kstatez2, 0)
+    @test norm(totalZ2) ≈ 1.0
+    @test totalZ2[233] ≈ 1/√2
+    @test totalZ2[end] ≈ 1/√2
+
+    total0 = mapstate_K2total(12, kstate0, 0)
+    @test norm(total0) ≈ 1.0
+    @test total0[1] ≈ 1.0
+
+    total1 = mapstate_K2total(12, kstate1, 0)
+    @test norm(total1) ≈ 1.0
+    orderlis=[i.buf+1 for i in PXP_basis(12)]
+    index = map(x ->searchsortedfirst(orderlis, x), [1<<i+1 for i in 0:11])
+    @test total1[index] ≈ 1/√12*ones(Float64, 12)
+
+    MSSstatez2 = zeros(26); MSSstatez2[end] = 1
+    MSSstate0 = zeros(26); MSSstate0[1] = 1
+    MSSstate1 = zeros(26); MSSstate1[2] = 1
+    MSSstate37 = zeros(26); MSSstate37[8] = 1
+
+    totalZ2 = mapstate_MSS2total(12, MSSstatez2, 0)
+    @test norm(totalZ2) ≈ 1.0
+    @test totalZ2[233] ≈ 1/√2
+    @test totalZ2[end] ≈ 1/√2
+
+    total0 = mapstate_MSS2total(12, MSSstate0, 0)
+    @test norm(total0) ≈ 1.0
+    @test total0[1] ≈ 1.0
+
+    total1 = mapstate_MSS2total(12, MSSstate1, 0)
+    @test norm(total1) ≈ 1.0
+    @test total1[index] ≈ 1/√12*ones(Float64, 12)
+
+    Kz2 = mapstate_MSS2K(12, MSSstatez2, 0)
+    @test norm(Kz2) ≈ 1.0
+    @test Kz2[end] ≈ 1.0
+
+    K0 = mapstate_MSS2K(12, MSSstate0, 0)
+    @test norm(K0) ≈ 1.0
+    @test K0[1] ≈ 1.0
+
+    K37 = mapstate_MSS2K(12, MSSstate37, 0)
+    @test norm(K37) ≈ 1.0
+    @test K37[8] ≈ 1/√2
+    @test K37[9] ≈ 1/√2
+end
