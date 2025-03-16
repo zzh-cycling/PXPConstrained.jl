@@ -21,9 +21,11 @@ PXPConstrained is a a powerful exact numerical calculation package using Exact D
 ```julia
     N=12
     state=BitStr{N, Int}(0)
-    basis = PXP_basis(BitStr{N, Int})
-    H=PXP_Ham(BitStr{N, Int})
-    rdm = rdm_PXP(BitStr{N, Int}, collect(1:6), state)
+    basis = PXP_basis(N)
+    H=PXP_Ham(N)
+    rdm = rdm_PXP(N, collect(1:6), state)
+    energy, states = eigen(H)
+    scar, thermal_ensemble = sep_scar_FSA(N, energy, states)
 ```
 
 ## Installation
