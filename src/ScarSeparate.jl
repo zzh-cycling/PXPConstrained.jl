@@ -19,8 +19,7 @@ function proj_FSA2total(::Type{T}) where {N, T <: BitStr{N}}
     else
         iso = iso_total2FSA(T)
     end
-    
-    myprint(stdout,"iso complete")
+
     energy,states=eigen(PXP_FSA_Ham(T))
     Proj=iso*states*states'*iso'
     return Proj
@@ -30,13 +29,12 @@ function sep_scar_FSA(::Type{T}, energy::Vector{Float64},states::Matrix{Float64}
     indices=[index for (index,value) in enumerate(energy) if abs(value)<=1e-8]
     P_FSA=proj_FSA2total(T)
 
-    myprint(stdout,"P_FSA complete")
     iso_0modes=states[:,indices]
     # Here need to note that for different basic MKL/openblas version, the degenrated subspace will generate different states. So we need to use the same kind of Package.
     # P_0modes=iso_0modes*iso_0modes'
 
     PPP_symmetrized = (iso_0modes'*P_FSA*iso_0modes + (iso_0modes'*P_FSA*iso_0modes)') / 2
-    myprint(stdout,"PPP complete")
+    
     vals, vecs = eigen(PPP_symmetrized)
     vecs=iso_0modes*vecs
 
@@ -50,12 +48,11 @@ function sep_scar_FSA_inv(::Type{T},energy::Vector{Float64},states::Matrix{Float
     indices=[index for (index,value) in enumerate(energy) if abs(value)<=1e-8]
     P_FSA=proj_FSA2total(T)
 
-    myprint(stdout,"P_FSA complete")
     iso_0modes=states[:,indices]
     # We note that the inversion symmetry is exceptionally influence the thermal 
 
     PPP_symmetrized = (iso_0modes'*P_FSA*iso_0modes + (iso_0modes'*P_FSA*iso_0modes)') / 2
-    myprint(stdout,"PPP complete")
+
     vals, vecs = eigen(PPP_symmetrized)
     vecs=iso_0modes*vecs
 
@@ -81,7 +78,6 @@ function sep_scar_FSA_inv(::Type{T},energy::Vector{Float64},states::Matrix{Float
 
     total_states = hcat(total_states...)
     return vecs[:,end], total_states
-    # myprint(stdout,"PPP complete")
     # scar,thermal=vecs[:,end],vecs[:,1:end-1]
 
     # return scar,thermal
@@ -275,8 +271,6 @@ function sep_scar_exact_translation(::Type{T}, energy::Vector{Float64}, states::
         Tpi += (-1)^i * T_power
     end
     end
-    myprint(stdout,"T0 and Tpi complete")
-
 
     for i in 1:size(thermal_ensemble)[2]
         st=thermal_ensemble[:,i]

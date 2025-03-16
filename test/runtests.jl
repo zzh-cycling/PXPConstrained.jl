@@ -19,6 +19,6 @@ end
     include("./test_PXPSparse.jl")
 end
 
-@test "Dynamics" begin
+@testset "Dynamics" begin
     include("./test_Dynamics.jl")
 end 

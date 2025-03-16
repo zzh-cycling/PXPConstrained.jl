@@ -51,7 +51,7 @@ using LinearAlgebra
     @test isapprox(P*P, P, atol=1e-10)
 
     # Dims of PBC's rdm should = Dims of OBC
-    rdm = rdm_PXP(N, [collect(1:div(N,2))], ones(322))
+    rdm = rdm_PXP(N, collect(1:div(N,2)), ones(322))
     @test ishermitian(rdm)
     @test isapprox(tr(rdm), 322.0, atol=1e-6)
     @test size(rdm) == (21, 21)
@@ -100,7 +100,7 @@ using LinearAlgebra
     @test u[1,1] == 1.0
     @test u[end, end] ≈ 1/√2
 
-    rdm_K = rdm_PXP_K(24, [collect(1:12)], ones(4341),0)
+    rdm_K = rdm_PXP_K(24, collect(1:12), ones(4341),0)
     @test size(rdm_K) == (377, 377)
     @test length(PXP_basis(12, false)) == 377
 
@@ -137,14 +137,14 @@ using LinearAlgebra
     @test map_total2MSS'*map_total2MSS ≈ I(26)
 
     MSS_vec=MSS_vecs[:,12]
-    rdm_MSS = rdm_PXP_MSS(N, [collect(1:6)], MSS_vec,0)
+    rdm_MSS = rdm_PXP_MSS(N, collect(1:6), MSS_vec,0)
     @test size(rdm_MSS) == (21, 21) == (length(PXP_basis(6, false)) ,length(PXP_basis(6, false)))
 
     # Fit the scar's central charge, may change depends on the machine and basic linear algebra package.
     splitlis = collect(1:N-1)
     EE_lis=zeros(length(splitlis))
     for m in eachindex(EE_lis)
-        subrho=rdm_PXP_MSS(N, [collect(1:splitlis[m])], MSS_vec, 0)
+        subrho=rdm_PXP_MSS(N, collect(1:splitlis[m]), MSS_vec, 0)
         EE_lis[m]=ee(subrho)
     end
 
@@ -177,5 +177,6 @@ end
 
 @testset "connected components" begin
     v = [1, 2, 4, 5, 7]
-    @test_broken PXPConstrained.connected_components(v) == [[1, 2], [4, 5], [7]]
+    @test PXPConstrained.connected_components(v) == [[1, 2], [4, 5], [7]]
+    @test PXPConstrained.connected_components([1,2,3,7,8,9]) == [[1, 2, 3], [7, 8, 9]]
 end

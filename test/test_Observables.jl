@@ -99,21 +99,26 @@ end
     ρ_AC = density_matrix(reg, vcat(A, C))
     ρ_ABC = density_matrix(reg, vcat(A, B, C))
     
-    valsA=filter(x -> !isapprox(x, 0.0; atol=1e-10), eigvals(ρ_A.state))
-    valsB=filter(x -> !isapprox(x, 0.0; atol=1e-10), eigvals(ρ_B.state))
-    valsC=filter(x -> !isapprox(x, 0.0; atol=1e-10), eigvals(ρ_C.state))
-    valsAB=filter(x -> !isapprox(x, 0.0; atol=1e-10), eigvals(ρ_AB.state))
-    valsBC=filter(x -> !isapprox(x, 0.0; atol=1e-10), eigvals(ρ_BC.state))
-    valsAC=filter(x -> !isapprox(x, 0.0; atol=1e-10), eigvals(ρ_AC.state))
-    valsABC=filter(x -> !isapprox(x, 0.0; atol=1e-10), eigvals(ρ_ABC.state))
-    @test valsA ≈ valsB ≈ valsC  ≈ valsABC
-    @test eigvals(rdm_PXP(N, [A], scar)) ≈ valsA
-    @test eigvals(rdm_PXP(N, [B], scar)) ≈ valsB
-    @test eigvals(rdm_PXP(N, [C], scar)) ≈ valsC
-    @test eigvals(rdm_PXP(N, [A, B], scar)) ≈ valsAB
-    @test_broken eigvals(rdm_PXP(N, [B, C], scar)) ≈ valsBC
-    @test_broken eigvals(rdm_PXP(N, [A, C], scar)) ≈ valsAC
-    @test_broken eigvals(rdm_PXP(N, [A, B, C], scar)) ≈ valsABC
+    index1=[i.buf+1 for i in PXP_basis(3,false)]
+    index2=[i.buf+1 for i in PXP_basis(6,false)]
+    index3=[i.buf+1 for i in PXPConstrained.joint_pxp_basis([3, 3])]
+    index4=[i.buf+1 for i in PXP_basis(9,false)]
+    valsA=eigvals(ρ_A.state[index1, index1])
+    valsB=eigvals(ρ_B.state[index1, index1])
+    valsC=eigvals(ρ_C.state[index1, index1])
+    valsAB=eigvals(ρ_AB.state[index2, index2])
+    valsBC=eigvals(ρ_BC.state[index2, index2])
+    valsAC=eigvals(ρ_AC.state[index3, index3])
+    valsABC=eigvals(ρ_ABC.state[index4, index4])
+
+    @test valsA ≈ valsB ≈ valsC
+    @test eigvals(rdm_PXP(N, A, scar)) ≈ valsA
+    @test eigvals(rdm_PXP(N, B, scar)) ≈ valsB
+    @test eigvals(rdm_PXP(N, C, scar)) ≈ valsC
+    @test eigvals(rdm_PXP(N, vcat(A, B), scar)) ≈ valsAB
+    @test eigvals(rdm_PXP(N, vcat(B, C), scar)) ≈ valsBC
+    @test eigvals(rdm_PXP(N, vcat(A, C), scar)) ≈ valsAC
+    @test eigvals(rdm_PXP(N, vcat(A, B, C), scar)) ≈ valsABC
     
     S_A= von_neumann_entropy(ρ_A)
     S_B= von_neumann_entropy(ρ_B)

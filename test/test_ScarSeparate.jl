@@ -61,8 +61,8 @@ function test_gene_scar(::Type{T}) where {N, T <: BitStr{N}}
     myscarkpi=myscar1-myscar2
     myscarkpi/=norm(myscarkpi)
 
-    myrhok0=rdm_PXP(T, [collect(1:div(N,2))], myscark0)
-    myrhokpi=rdm_PXP(T, [collect(1:div(N,2))], myscarkpi)
+    myrhok0=rdm_PXP(T, collect(1:div(N,2)), myscark0)
+    myrhokpi=rdm_PXP(T, collect(1:div(N,2)), myscarkpi)
     mysk0=ee(myrhok0)
     myskpi=ee(myrhokpi)
 

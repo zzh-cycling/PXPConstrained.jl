@@ -104,6 +104,30 @@ function joint_pxp_basis(lengthlis::Vector{Int})
     return sort(mapreduce(len -> PXP_basis(len, false), process_join, lengthlis))
 end
 
+function connected_components(v::Vector{Int})
+    if isempty(v)
+        return []
+    end
+
+    sort!(v)
+
+    result = []
+    current_segment = [v[1]]
+
+    for i in 2:length(v)
+        if v[i] == v[i - 1] + 1
+            push!(current_segment, v[i])
+        else
+            push!(result, current_segment)
+            current_segment = [v[i]]
+        end
+    end
+
+    push!(result, current_segment)
+
+    return result
+end
+
 function move_subsystem(::Type{BitStr{M, INT}}, basis::BitStr{N, INT}, subsystems::Vector{Int}) where {M, N, INT}
     @assert length(subsystems) == N "subsystems length is expected to be $N, but got $(length(subsystems))"
     @assert M >= N "total length is expected to be greater than or equal to $N, but got $M"
@@ -115,11 +139,12 @@ takeenviron(x, mask::BitStr{l}) where {l} = x & (~mask)
 # take system part of a basis
 takesystem(x, mask::BitStr{l}) where {l} = (x & mask)
 
-function rdm_PXP(::Type{T}, subsystems::Vector{Vector{Int64}}, state::Vector{ET}, pbc::Bool=true) where {N,T <: BitStr{N}, ET}
+function rdm_PXP(::Type{T}, subsystems::Vector{Int64}, state::Vector{ET}, pbc::Bool=true) where {N,T <: BitStr{N}, ET}
     # Usually subsystem indices count from the right of binary string.
     # The function is to take common environment parts of the total basis, get the index of system parts in reduced basis, and then calculate the reduced density matrix.
+    subsystems=connected_components(subsystems)
     lengthlis=length.(subsystems)
-    subsystems=sort(vcat(subsystems...))
+    subsystems=vcat(subsystems...)
     mask = bmask(T, subsystems...)
 
     unsorted_basis = PXP_basis(T, pbc)
@@ -149,7 +174,6 @@ function rdm_PXP(::Type{T}, subsystems::Vector{Vector{Int64}}, state::Vector{ET}
     for i in 1:length(result_indices)-1
         range = result_indices[i]:result_indices[i+1]-1         
         # Get indices in the reduced basis
-        # Here exists potential bug espeically when subsystems is not continuous slots, reduced total basis may not in constrained space.
         indices, _ = find_indices(reduced_basis, basis[range], mask)
         # s = view(state, range[exists])
         view(reduced_dm, indices, indices) .+= view(state, range) .* view(state, range)'
@@ -157,7 +181,7 @@ function rdm_PXP(::Type{T}, subsystems::Vector{Vector{Int64}}, state::Vector{ET}
 
     return reduced_dm
 end
-rdm_PXP(N::Int, subsystems::Vector{Vector{Int64}}, state::Vector{ET}, pbc::Bool=true) where {ET} = rdm_PXP(BitStr{N, Int}, subsystems, state, pbc)
+rdm_PXP(N::Int, subsystems::Vector{Int64}, state::Vector{ET}, pbc::Bool=true) where {ET} = rdm_PXP(BitStr{N, Int}, subsystems, state, pbc)
 
 function iso_total2K(::Type{T}, k::Int64) where {N, T <: BitStr{N}}
 #Function to map the total basis to the K space basis, actually is the isometry, defined as W'*W=I, W*W'=P, P^2=P
@@ -198,14 +222,14 @@ function iso_total2K(::Type{T}, k::Int64) where {N, T <: BitStr{N}}
 end
 iso_total2K(N::Int, k::Int64) = iso_total2K(BitStr{N, Int}, k)
 
-function rdm_PXP_K(::Type{T}, subsystems::Vector{Vector{Int64}},state::Vector{ET}, k::Int64) where {N,T <: BitStr{N}, ET}
+function rdm_PXP_K(::Type{T}, subsystems::Vector{Int64},state::Vector{ET}, k::Int64) where {N,T <: BitStr{N}, ET}
     iso = iso_total2K(T, k)
     @assert size(iso)[2] == length(state) "state length is expected to be $(size(iso)[2]), but got $(length(state))"
     state=iso*state
     reduced_dm = rdm_PXP(T, subsystems, state)
     return reduced_dm
 end
-rdm_PXP_K(N::Int, subsystems::Vector{Vector{Int64}},state::Vector{ET}, k::Int64) where {ET} = rdm_PXP_K(BitStr{N, Int}, subsystems, state, k)
+rdm_PXP_K(N::Int, subsystems::Vector{Int64},state::Vector{ET}, k::Int64) where {ET} = rdm_PXP_K(BitStr{N, Int}, subsystems, state, k)
 
 
 function iso_K2MSS(::Type{T}, k::Int64, inv::Int64=1) where {N, T <: BitStr{N}}
@@ -272,14 +296,14 @@ function iso_total2MSS(::Type{T}, k::Int64, inv::Int64=1) where {N, T <: BitStr{
 end
 iso_total2MSS(N::Int, k::Int64, inv::Int64=1) = iso_total2MSS(BitStr{N, Int}, k, inv)
 
-function rdm_PXP_MSS(::Type{T}, subsystems::Vector{Vector{Int64}}, state::Vector{ET}, k::Int64, inv::Int64=1) where {N,T <: BitStr{N}, ET}
+function rdm_PXP_MSS(::Type{T}, subsystems::Vector{Int64}, state::Vector{ET}, k::Int64, inv::Int64=1) where {N,T <: BitStr{N}, ET}
     iso = iso_total2MSS(T, k, inv)
     @assert size(iso)[2] == length(state) "state length is expected to be $(size(iso)[2]), but got $(length(state))"
     state=iso*state
     reduced_dm = rdm_PXP(T, subsystems, state)
     return reduced_dm
 end
-rdm_PXP_MSS(N::Int64, subsystems::Vector{Vector{Int64}},state::Vector{ET}, k::Int64, inv::Int64=1) where {ET} = rdm_PXP_MSS(BitStr{N, Int}, subsystems, state, k, inv)
+rdm_PXP_MSS(N::Int64, subsystems::Vector{Int64},state::Vector{ET}, k::Int64, inv::Int64=1) where {ET} = rdm_PXP_MSS(BitStr{N, Int}, subsystems, state, k, inv)
 
 
 function inversion_matrix(::Type{T}) where {N, T <: BitStr{N}}
