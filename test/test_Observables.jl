@@ -108,12 +108,12 @@ end
     valsABC=filter(x -> !isapprox(x, 0.0; atol=1e-10), eigvals(ρ_ABC.state))
     @test valsA ≈ valsB ≈ valsC  ≈ valsABC
     @test eigvals(rdm_PXP(N, [A], scar)) ≈ valsA
-    # @test eigvals(rdm_PXP(N, [B], scar)) ≈ valsB
-    # @test eigvals(rdm_PXP(N, [C], scar)) ≈ valsC
-    # @test eigvals(rdm_PXP(N, [A, B], scar)) ≈ valsAB
-    # @test eigvals(rdm_PXP(N, [B, C], scar)) ≈ valsBC
-    # @test eigvals(rdm_PXP(N, [A, C], scar)) ≈ valsAC
-    # @test eigvals(rdm_PXP(N, [A, B, C], scar)) ≈ valsABC
+    @test eigvals(rdm_PXP(N, [B], scar)) ≈ valsB
+    @test eigvals(rdm_PXP(N, [C], scar)) ≈ valsC
+    @test eigvals(rdm_PXP(N, [A, B], scar)) ≈ valsAB
+    @test_broken eigvals(rdm_PXP(N, [B, C], scar)) ≈ valsBC
+    @test_broken eigvals(rdm_PXP(N, [A, C], scar)) ≈ valsAC
+    @test_broken eigvals(rdm_PXP(N, [A, B, C], scar)) ≈ valsABC
     
     S_A= von_neumann_entropy(ρ_A)
     S_B= von_neumann_entropy(ρ_B)
@@ -129,8 +129,8 @@ end
     I_AB = S_A + S_C - S_AC
     @test isapprox(I_AB, 0.97392703, atol=1e-6)
     @test isapprox(I_ABC/log(2), 0.85760514, atol=1e-6)
-    # @test isapprox(tri_mutual_information(N, (A, B, C), scar)/log(2), 0.85760514, atol=1e-6)
-    # @test isapprox(mutual_information(N, (A, C), scar), 0.97392703, atol=1e-6)
+    @test isapprox(tri_mutual_information(N, (A, B, C), scar)/log(2), 0.85760514, atol=1e-6)
+    @test isapprox(mutual_information(N, (A, C), scar), 0.97392703, atol=1e-6)
 end
 
 @testset "ergotropy in MSS" begin

@@ -151,3 +151,31 @@ using LinearAlgebra
     cent, _= fitCCEntEntScal(EE_lis; mincut=1, pbc=true)
     @test isapprox(cent, 1.924, atol=1e-2)
 end
+
+@testset "process_join" begin
+    # [[000 ₍₂₎, 001 ₍₂₎, 010 ₍₂₎, 100 ₍₂₎, 101 ₍₂₎], [000 ₍₂₎, 001 ₍₂₎, 010 ₍₂₎, 100 ₍₂₎, 101 ₍₂₎]]
+    lis1 = BitStr{2}[0, 1, 2]
+    lis2 = BitStr{3}[0, 1, 2, 4, 5]
+    res = PXPConstrained.process_join(lis1, lis2) 
+    @test res == vec([join(l2, l1) for l1 in lis1, l2 in lis2])
+
+    # joint_pxp_basis
+    res = PXPConstrained.joint_pxp_basis([2, 3])
+    @test res == vec([join(l2, l1) for l1 in lis1, l2 in lis2])
+
+    # move_subsystem
+    res = PXPConstrained.move_subsystem(BitStr{5, Int}, BitStr{3, Int}(0b101), [1, 2, 5])
+    @test res == BitStr{5}(0b10001)
+
+    # takeenviron
+    bs, mask = BitStr{5}(0b11001), BitStr{5}(0b10001)
+    env = PXPConstrained.takeenviron(bs, mask)
+    sys = PXPConstrained.takesystem(bs, mask)
+    @test env == BitStr{5}(0b01000)
+    @test sys == BitStr{5}(0b10001)
+end
+
+@testset "connected components" begin
+    v = [1, 2, 4, 5, 7]
+    @test_broken PXPConstrained.connected_components(v) == [[1, 2], [4, 5], [7]]
+end
