@@ -32,21 +32,21 @@ end
     # energy conservation
 end
 
-# @testset "rotated_psi_state" begin
-#     # Test the rotated state by the on-site rotation exp(i θ/2 Y)
-#     N = 12
-#     for θ in 0.0:0.1:π
-#         rotated_state = rotated_psi_state(N, θ)
-#         @test_broken isapprox(norm(rotated_state), 1.0, atol=1e-10)
-#     end
-# end
+@testset "rotated_psi_state" begin
+    # Test the rotated state by the on-site rotation exp(i θ/2 Y)
+    N = 12
+    for θ in 0.0:0.1:π
+        rotated_state = rotated_psi_state(N, θ)
+        @test isapprox(norm(rotated_state), 1.0, atol=1e-10)
+    end
+end
 
-# @testset "rotated_psi_state_mss" begin
-#     # Test the rotated state by the on-site rotation exp(i θ/2 Y)
-#     N = 12
-#     for θ in 0.0:0.1:π
-#         rotated_state = rotated_psi_state_mss(N, θ, 0)
-#         @test_broken isapprox(norm(rotated_state), 1.0, atol=1e-10)
-#     end
-#     @test_broken rotated_psi_state_mss(12, 0) ≈ rotated_psi_state_mss(12, π)
-# end
+@testset "rotated_psi_state_mss" begin
+    # Test the rotated state by the on-site rotation exp(i θ/2 Y)
+    N = 12
+    for θ in 0.0:0.1:π
+        rotated_state = rotated_psi_state_mss(N, 0, θ)
+        @test isapprox(norm(rotated_state), 1.0, atol=1e-10)
+    end
+    @test rotated_psi_state_mss(12,0, 0) ≈ rotated_psi_state_mss(12,0, π)
+end

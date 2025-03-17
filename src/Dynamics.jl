@@ -36,63 +36,72 @@ function wf_time_evolution_mss(L::Int, k::Int64, psi0::Vector{ET}, t_values::Vec
 end
 
 function rotated_psi_state(::Type{T}, θ::Real) where {N, T<: BitStr{N}}
-#params: the particlenumber of the space, and rotation angle θ for the Z2 state
-#return: the state rotated by on site rotation exp(i θ/2 Y)
+    # params: the particlenumber of the space, and rotation angle θ for the Z2 state
+    # return: the state rotated by on site rotation exp(i θ/2 Y)
     basis = PXP_basis(T)
-    γ = tan(θ/2)
-    rotated_state = zeros(length(basis))
+    cos_half_θ = cos(θ/2)
+    sin_half_θ = sin(θ/2)
+    rotated_state = zeros(Float64, length(basis))
     
     for (i, base) in enumerate(basis)
-        rotated_state[i] = even_zeros(base, γ)
+        rotated_state[i] = even_zeros(base, θ)
     end
     
-    rotated_state = rotated_state .* cos(θ/2)^N
     return rotated_state ./ norm(rotated_state)
 end
 rotated_psi_state(N::Int64, θ::Real) = rotated_psi_state(BitStr{N, Int}, θ)
 
-function even_zeros(base::BitStr{N}, γ::Float64) where {N}
+function even_zeros(base::BitStr{N}, θ::Real) where {N}
     # 计算奇数位上1的数量
     odd_ones = 0
     # 计算偶数位上0的数量
     even_zeros = 0
-    
+    even_ones = 0
+    odd_zeros = 0
     for j in 1:N
         if j % 2 == 1  # 奇数位
             if base[j] == 1
                 odd_ones += 1
+            else
+                odd_zeros += 1
             end
         else  # 偶数位
             if base[j] == 0
                 even_zeros += 1
-            end
-        end
-    end
-    
-    # 计算振幅：γ^(奇数位1的数量) * (-γ)^(偶数位0的数量)
-    return γ^(odd_ones + even_zeros) * (-1)^even_zeros
-end
-
-function even_ones(base::BitStr{N}, γ::Float64) where {N}
-    # 计算奇数位上1的数量
-    odd_zeros = 0
-    # 计算偶数位上0的数量
-    even_ones = 0
-    
-    for j in 1:N
-        if j % 2 == 1  # 奇数位
-            if base[j] == 0
-                odd_zeros += 1
-            end
-        else  # 偶数位
-            if base[j] == 1
+            else
                 even_ones += 1
             end
         end
     end
     
+    return sin(θ/2)^(odd_ones) * (-sin(θ/2))^even_zeros * cos(θ/2)^(even_ones+odd_zeros)
+end
+
+function even_ones(base::BitStr{N}, θ::Real) where {N}
+    # 计算奇数位上1的数量
+    odd_zeros = 0
+    # 计算偶数位上0的数量
+    even_ones = 0
+    odd_ones = 0
+    even_zeros = 0
+    for j in 1:N
+        if j % 2 == 1  # 奇数位
+            if base[j] == 0
+                odd_zeros += 1
+            else
+                odd_ones += 1
+            end
+        else  # 偶数位
+            if base[j] == 1
+                even_ones += 1
+            else
+                even_zeros += 1
+            end
+        end
+    end
+    
     # 计算振幅：γ^(奇数位1的数量 + 偶数位0的数量) * (-1)^(偶数位0的数量)
-    return γ^(odd_zeros + even_ones) * (-1)^even_ones
+    return sin(θ/2)^(odd_zeros) * (-sin(θ/2))^even_ones * cos(θ/2)^(even_ones+odd_zeros)
 end
 
 
@@ -100,21 +109,23 @@ function rotated_psi_state_mss(::Type{T}, k::Int64, θ::Real) where {N, T<: BitS
     # params: a state in maximum symmetry space, and the momentum of the state
     # return: the state in total space
     MSS, MSS_dic, qlist = PXP_MSS_basis(T, k)
-    γ = tan(θ/2)
+    cos_half_θ = cos(θ/2)
+    sin_half_θ = sin(θ/2)
     basisK, k_dic = PXP_K_basis(T, k)
     
     rotated_state = zeros(Float64, length(MSS))
 
     for (i, base) in enumerate(MSS)
-        Y= sqrt(length(k_dic[base]))/N
-        Z= sqrt(qlist[i])*Y/2
-        amp1 = even_zeros(base, γ)
-        amp2 = even_ones(base, γ)
+        Y = sqrt(length(k_dic[base]))/N
+        Z = sqrt(qlist[i])*Y/2
         
-        rotated_state[i]=Z*N*sqrt(2)*(amp1+amp2)
+        # 计算基态在旋转后的振幅
+        amp1 = even_zeros(base, θ)
+        amp2 = even_ones(base, θ)
+        
+        rotated_state[i] = Z*N*sqrt(2)*(amp1+amp2)
+        
     end
-
-    rotated_state = rotated_state .* cos(θ/2)^N
     
     return rotated_state ./ norm(rotated_state)
 end
