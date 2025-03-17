@@ -46,7 +46,8 @@ function rotated_psi_state(::Type{T}, θ::Real) where {N, T<: BitStr{N}}
         rotated_state[i] = even_zeros(base, γ)
     end
     
-    return rotated_state .* cos(θ/2)^N
+    rotated_state = rotated_state .* cos(θ/2)^N
+    return rotated_state ./ norm(rotated_state)
 end
 rotated_psi_state(N::Int64, θ::Real) = rotated_psi_state(BitStr{N, Int}, θ)
 
@@ -112,7 +113,9 @@ function rotated_psi_state_mss(::Type{T}, k::Int64, θ::Real) where {N, T<: BitS
         
         rotated_state[i]=Z*N*sqrt(2)*(amp1+amp2)
     end
+
+    rotated_state = rotated_state .* cos(θ/2)^N
     
-    return rotated_state.* cos(θ/2)^N
+    return rotated_state ./ norm(rotated_state)
 end
 rotated_psi_state_mss(N::Int64, k::Int64, θ::Real) = rotated_psi_state_mss(BitStr{N, Int}, k, θ)
