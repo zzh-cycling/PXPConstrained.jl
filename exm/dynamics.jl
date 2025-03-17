@@ -1,6 +1,5 @@
 using PXPConstrained
 using LinearAlgebra
-using BenchmarkTools
 using Plots
 using LaTeXStrings
 
@@ -22,8 +21,6 @@ for i in eachindex(θlis)
     palsis[i]=passive_energy
 end
 
-rotated_state=rotated_psi_state(N, π)
-
 fig = plot(θlis, ergolis, 
     title=L"Ergotropy\ and\ Entanglement\ Entropy\ (N=%$N)", 
     xlabel=L"\theta", 
@@ -40,17 +37,17 @@ plot!(θlis, eelis,
 # plot(subplot =2, θlis, eelis, title="Eigenenergy of rotated state", xlabel="θ", ylabel="Eigenenergy", legend=:outertopright)
 
 energy, states = eigen(PXP_Ham(N))
-timelis=collect(0.0:0.2:500)
-st=zeros(2207);st[end]=1
+timelis=collect(0.0:0.2:200)
+st=rotated_psi_state(N, π/2)
 wflis= wf_time_evolution(st, timelis, energy, states)
-z2eelis=zeros(length(timelis))
+steelis=zeros(length(timelis))
 
 for i in eachindex(timelis)
     subrho=rdm_PXP(N, collect(1:div(N,2)), wflis[i])
-    z2eelis[i]=ee(subrho)
+    steelis[i]=ee(subrho)
 end
 
-fig2=plot(timelis, z2eelis, title="Time evolution of z2 component", xlabel="Time", ylabel="Eigenenergy", label="z2 component", c=:red)
+fig2=plot(timelis, steelis, title="Time evolution of z2 component", xlabel="Time", ylabel="Eigenenergy", label="z2 component", c=:red)
 
-
-
+finalst=wflis[end]
+figPage=ee_PXP_scaling_fig(N, finalst, "Page")[2]

@@ -1,16 +1,17 @@
 
-function ee(subrm::Matrix{Float64})
+function ee(subrm::Matrix{ET}) where {ET}
     #  subrm=qi.ptrace(state*state',[2 for i in 1:N],[i for i in l+1:N])
-     spectrum=eigvals(subrm)
-     EE=0
-     for i in eachindex(spectrum)
-         v=abs(spectrum[i])
-             if v>1e-8
-                 EE+=-v*log(v)
-             end
-     end
+    @assert ishermitian(subrm) "The reduced density matrix is not hermitian."
+    spectrum=eigvals(subrm)
+    EE=0
+    for i in eachindex(spectrum)
+        v=abs(spectrum[i])
+            if v>1e-8
+                EE+=-v*log(v)
+            end
+    end
 
-     return EE
+    return EE
 end
 
 function ee_PXP_idx(N::Int64, splitlis::Vector{Int64}, idx::Int64) 
@@ -50,7 +51,7 @@ function ee_PXP_scaling_fig(N::Int64, state::Vector{ET},fit::String) where {ET}
     return cent, fig
 end
 
-function mutual_information(N::Int64, subsystems::Tuple{Vector{Int64}, Vector{Int64}}, state::Vector{ET}, pbc::Bool=true) where {ET}
+function mutual_information(N::Int64, subsystems::Tuple{Vector{Int64}, Vector{Int64}}, state::Vector{ET}) where {ET}
     A, B = subsystems
     # MI formula defined as: I(A:B) = S_A + S_B - S_AB
     # Calculate the reduced density matrices
@@ -69,7 +70,7 @@ end
 
 
 
-function tri_mutual_information(N::Int64, subsystems::Tuple{Vector{Int64}, Vector{Int64}, Vector{Int64}}, state::Vector{ET}, pbc::Bool=true) where {ET}
+function tri_mutual_information(N::Int64, subsystems::Tuple{Vector{Int64}, Vector{Int64}, Vector{Int64}}, state::Vector{ET}) where {ET}
     A, B, C = subsystems
     # TMI formula defined as: I(A:B:C) = S_A + S_B + S_C - S_AB - S_BC - S_AC + S_ABC
     
@@ -124,8 +125,6 @@ function domain_wall(::Type{T}, pbc::Bool=true) where {N, T <: BitStr{N}}
 #return: domain_wall_density diagonal elements
 #The eigenvectors of this operator are going from -N to N, increasing by 2, totally N+1 eigenvectors. Number of each eigenvalues is N choose k, 
 #where k is the number of domain walls when we consider total Hilbert space. Defined as sum_i Z_i =1/2 (-1)^(i+1) * Z_i, we aim for spin systems.(S_Z= 1/2 Pauli Z)
- 
-    
     basis = PXP_basis(T, pbc)
     l=length(basis)
     dw = zeros(l)
@@ -152,7 +151,6 @@ function particlenumber(::Type{T},pbc::Bool=true) where {N, T <: BitStr{N}}
     end
 
     return P
-    
 end
 particlenumber(N::Int64, pbc::Bool=true) = particlenumber(BitStr{N, Int}, pbc)
 
