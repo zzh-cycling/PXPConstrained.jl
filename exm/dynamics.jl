@@ -75,9 +75,9 @@ st = rotated_psi_state(N, π/2)  # 初始化旋转角度为π/2的量子态
 # 执行时间演化
 wflis = wf_time_evolution(st, timelis, energy, states)
 
-# 创建数组存储纠缠熵和能量功率性
+# 创建数组存储纠缠熵和ergotropy
 steelis = zeros(length(timelis))  # 存储纠缠熵
-ergolis = zeros(length(timelis))  # 存储能量功率性
+ergolis = zeros(length(timelis))  # 存储ergotropy
 
 # 对每个时间点计算纠缠熵和能量功率性
 for i in eachindex(timelis)
@@ -85,7 +85,7 @@ for i in eachindex(timelis)
     subrho = rdm_PXP(N, collect(1:div(N,2)), wflis[i])
     steelis[i] = ee(subrho)
     
-    # 计算能量功率性
+    # 计算ergotropy
     GS_energy, subenergy, passive_energy = ergotropy_PXP_state(N, div(N,2), wflis[i])
     ergolis[i] = real(GS_energy - passive_energy)
 end
@@ -108,8 +108,138 @@ plot!(timelis, steelis,
     c=:purple)
 
 # 可选：保存图像
-# savefig(fig, "ergotropy_ee_evolution.png")
+# savefig(fig, "ergotropy_ee_evolution.pdf")
 
 # 显示图像
 display(fig)
 
+
+
+
+#非mss情况计算dynamics
+# 设置系统参数
+N_values = [10, 12, 14, 16]  
+timelis = collect(0.0:0.2:150)  # 时间列表
+
+# 创建存储结果的矩阵
+# 行：时间点，列：不同的N值
+ergotropy_matrix = zeros(length(timelis), length(N_values))
+entropy_matrix = zeros(length(timelis), length(N_values))
+
+# 循环计算每个N值
+for (idx, N) in enumerate(N_values)
+    # 对角化完整PXP哈密顿量
+    energy, states = eigen(PXP_Ham(N))
+    
+    # 生成初始态：旋转角度为π/2的态
+    rotated_state = rotated_psi_state(N, π)
+    
+    wflis = wf_time_evolution(rotated_state, timelis, energy, states)
+    
+    # 对每个时间点计算ee和ergotropy
+    for i in eachindex(timelis)
+        # 获取时间演化后的态
+        psi_t = wflis[i]
+        
+        # 计算纠缠熵
+        subrho = rdm_PXP(N, collect(1:div(N,2)), psi_t)
+        entropy_matrix[i, idx] = ee(subrho)
+        
+        GS_energy, subenergy, passive_energy = ergotropy_PXP_state(N, div(N,2), psi_t)
+        ergotropy_matrix[i, idx] = real(GS_energy - passive_energy)
+    end
+    
+    println("完成计算 N = $N")
+end
+
+# 设置主题
+theme(:blues)
+
+# 绘制组合图
+fig_combined = plot(
+    title = L"Evolution\ of\ Ergotropy\ & Entanglement\ Entropy\ (Non-MSS,\ \theta=\pi)",
+    grid = false,
+    layout = (2, 1),  # 两行一列的布局
+    size = (800, 600)  # 设置图表大小
+);
+
+# 顶部子图：ergotropy
+plot!(timelis, ergotropy_matrix, subplot = 1,
+    label = permutedims(["N=$n" for n in sort(N_values, rev=true)]),
+    marker = :none,  # 只使用线，不显示标记点
+    line_z = permutedims(N_values),
+    c = cgrad(:blues, length(N_values), rev=true),
+    linewidth = 2.0,
+    linealpha = 0.8,
+    colorbar = false,
+    ylim = (2, 5),  # 设置y轴范围
+    title = L"Evolution\ of\ Ergotropy\ (Non-MSS,\ \theta=\pi)",
+    legend = :topright,
+    legendfontsize = 6,  # 图例字体大小
+    legend_background_color = RGBA(1, 1, 1, 0.5),  # 半透明背景
+    legendfontfamily = "serif"  # 使用衬线字体
+)
+
+# 底部子图：纠缠熵
+plot!(timelis, entropy_matrix, subplot = 2,
+    label = nothing,  # 不显示图例
+    marker = :none,  # 只使用线，不显示标记点
+    line_z = permutedims(N_values),
+    c = cgrad(:blues, length(N_values), rev=true),
+    linewidth = 2.0,
+    linealpha = 0.8,
+    colorbar = false,
+    title = L"Evolution\ of\ Entanglement\ Entropy\ (Non-MSS,\ \theta=\pi)"
+)
+
+display(fig_combined)
+savefig(fig_combined, "ergotropy_entropy_evolution_nonMSS.pdf")
+
+# 创建单独的ergotropy图（带有合适的y轴范围）
+fig_ergotropy = plot(
+    timelis, ergotropy_matrix,
+    title = L"Evolution\ of\ Ergotropy\ (Non-MSS,\ \theta=\pi)",
+    xlabel = L"Time",
+    ylabel = L"Ergotropy",
+    label = permutedims(["N=$n" for n in sort(N_values, rev=true)]),
+    marker = :none,
+    line_z = permutedims(N_values),
+    c = cgrad(:blues, length(N_values), rev=true),
+    linewidth = 2.0,
+    linealpha = 0.8,
+    colorbar = false,
+    ylim = (2, 5),
+    grid = false,
+    legend = :topright,
+    legendfontsize = 8,
+    legend_background_color = RGBA(1, 1, 1, 0.5),
+    legendfontfamily = "serif",
+    size = (800, 500)
+)
+
+display(fig_ergotropy)
+savefig(fig_ergotropy, "ergotropy_evolution_nonMSS.pdf")
+
+# 创建单独的纠缠熵图
+fig_entropy = plot(
+    timelis, entropy_matrix,
+    title = L"Evolution\ of\ Entanglement\ Entropy\ (Non-MSS,\ \theta=\pi)",
+    xlabel = L"Time",
+    ylabel = L"Entanglement\ Entropy",
+    label = permutedims(["N=$n" for n in sort(N_values, rev=true)]),
+    marker = :none,
+    line_z = permutedims(N_values),
+    c = cgrad(:blues, length(N_values), rev=true),
+    linewidth = 2.0,
+    linealpha = 0.8,
+    colorbar = false,
+    grid = false,
+    legend = :topright,
+    legendfontsize = 8,
+    legend_background_color = RGBA(1, 1, 1, 0.5),
+    legendfontfamily = "serif",
+    size = (800, 500)
+)
+
+display(fig_entropy)
+savefig(fig_entropy, "entropy_evolution_nonMSS.pdf")
