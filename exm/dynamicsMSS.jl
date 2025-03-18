@@ -23,7 +23,7 @@ entropy_matrix = zeros(length(timelis), length(N_values))
 # 循环计算每个N值
 for (idx, N) in enumerate(N_values)
     # 生成初始态：在 MSS 中的旋转态 (θ=π/2)
-    mss_rotated_state = rotated_psi_state_mss(N, k, π/2)
+    mss_rotated_state = rotated_psi_state_mss(N, k, 0)
     
     # 在 MSS 中执行时间演化
     mss_wflis = wf_time_evolution_mss(N, k, mss_rotated_state, timelis)
@@ -113,7 +113,7 @@ savefig(fig_entropy, "entropy_evolution_MSS.pdf")
 
 ######### 2.绘制组合图
 fig_combined = plot(
-    title = L"Evolution\ of\ Ergotropy\ & Entanglement\ Entropy\ in\ MSS\ (\theta=\pi/2,\ k=%$k)",
+    title = L"Evolution\ of\ Ergotropy\ & Entanglement\ Entropy\ in\ MSS\ (\theta=\pi,\ k=%$k)",
     xlabel = L"Time",
     ylabel = L"Value",
     titlefont = font(10),
@@ -138,7 +138,7 @@ plot!(timelis, ergotropy_matrix, subplot = 1,
     markerindex = 1:10:length(timelis),
     colorbar = false,
     ylim = (4, 8),
-    title = L"Evolution\ of\ Ergotropy\ (\theta=\pi/2,\ k=%$k)",
+    title = L"Evolution\ of\ Ergotropy\ (\theta=\pi,\ k=%$k)",
     legend = :topright,
     legendfontsize = 4,  # 缩小图例字体大小
     legend_background_color = RGBA(1, 1, 1, 0.5),  # 半透明背景
@@ -161,7 +161,7 @@ plot!(timelis, entropy_matrix, subplot = 2,
     markerindex = 1:10:length(timelis),
     colorbar = false,
     ylim = (0.5, 2.2),
-    title = L"Evolution\ of\ Entanglement\ Entropy\ (\theta=\pi/2,\ k=%$k)",
+    title = L"Evolution\ of\ Entanglement\ Entropy\ (\theta=\pi,\ k=%$k)",
 )
 
 #保存图片
@@ -171,7 +171,7 @@ plot!(timelis, entropy_matrix, subplot = 2,
 
 ##### 3. 组合图，但是用直线的版本，不用circle
 fig_combined = plot(
-    title = L"Evolution\ of\ Ergotropy\ & Entanglement\ Entropy\ in\ MSS\ (\theta=\pi/2,\ k=%$k)",
+    title = L"Evolution\ of\ Ergotropy\ & Entanglement\ Entropy\ in\ MSS\ (\theta=\pi,\ k=%$k)",
     xlabel = L"Time",
     ylabel = L"Value",
     titlefont = font(10),
@@ -188,13 +188,13 @@ plot!(timelis, ergotropy_matrix, subplot = 1,
     linewidth = 2.0,  # 增加线宽以提高可见性
     linealpha = 0.8,  # 增加线的不透明度
     colorbar = false,
-    ylim = (4.5, 10),
-    title = L"Evolution\ of\ Ergotropy\ (\theta=\pi/2,\ k=%$k)",
+    ylim = (2, 5),
+    title = L"Evolution\ of\ Ergotropy\ (Mss\ \theta=\pi,\ k=%$k)",
     legend = :topright,
     legendfontsize = 4,  # 缩小图例字体大小
     legend_background_color = RGBA(1, 1, 1, 0.5),  # 半透明背景
     legendfontfamily = "serif"  # 使用衬线字体
-)
+);
 
 # 底部子图：纠缠熵
 plot!(timelis, entropy_matrix, subplot = 2,
@@ -206,7 +206,7 @@ plot!(timelis, entropy_matrix, subplot = 2,
     linealpha = 0.8,  # 线的不透明度
     colorbar = false,
     ylim = (0.7, 2.2),
-    title = L"Evolution\ of\ Entanglement\ Entropy\ (\theta=\pi/2,\ k=%$k)",
+    title = L"Evolution\ of\ Entanglement\ Entropy\ (Mss\ \theta=0,\ k=%$k)",
 )
 
 ###计算不同theta的ergotropy和entanglement entropy
