@@ -39,8 +39,6 @@ function rotated_psi_state(::Type{T}, θ::Real) where {N, T<: BitStr{N}}
     # params: the particlenumber of the space, and rotation angle θ for the Z2 state
     # return: the state rotated by on site rotation exp(i θ/2 Y)
     basis = PXP_basis(T)
-    cos_half_θ = cos(θ/2)
-    sin_half_θ = sin(θ/2)
     rotated_state = zeros(Float64, length(basis))
     
     for (i, base) in enumerate(basis)
