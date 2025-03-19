@@ -42,20 +42,19 @@ function rotated_psi_state(::Type{T}, θ::Real) where {N, T<: BitStr{N}}
     rotated_state = zeros(Float64, length(basis))
     
     for (i, base) in enumerate(basis)
-        rotated_state[i] = even_zeros(base, θ)
+        exp = count_zeros_and_ones(base)
+        rotated_state[i] = Z2_overlap(exp, θ)
     end
     
     return rotated_state ./ norm(rotated_state)
 end
 rotated_psi_state(N::Int64, θ::Real) = rotated_psi_state(BitStr{N, Int}, θ)
 
-function even_zeros(base::BitStr{N}, θ::Real) where {N}
-    # 计算奇数位上1的数量
-    odd_ones = 0
-    # 计算偶数位上0的数量
+function count_zeros_and_ones(base::BitStr{N}) where {N}
     even_zeros = 0
     even_ones = 0
     odd_zeros = 0
+    odd_ones = 0
     for j in 1:N
         if j % 2 == 1  # 奇数位
             if base[j] == 1
@@ -64,51 +63,34 @@ function even_zeros(base::BitStr{N}, θ::Real) where {N}
                 odd_zeros += 1
             end
         else  # 偶数位
-            if base[j] == 0
-                even_zeros += 1
-            else
+            if base[j] == 1
                 even_ones += 1
+            else
+                even_zeros += 1
             end
         end
     end
-    
+
+    return even_zeros, even_ones, odd_zeros, odd_ones
+end
+
+
+#对于｜10101010...>态，做rotation后的振幅计算,从右往左计数
+function Z2_overlap(exp::Tuple{Int64, Int64, Int64, Int64}, θ::Real)
+    even_zeros, even_ones, odd_zeros, odd_ones = exp
     return sin(θ/2)^(odd_ones) * (-sin(θ/2))^even_zeros * cos(θ/2)^(even_ones+odd_zeros)
 end
 
-function even_ones(base::BitStr{N}, θ::Real) where {N}
-    # 计算奇数位上1的数量
-    odd_zeros = 0
-    # 计算偶数位上0的数量
-    even_ones = 0
-    odd_ones = 0
-    even_zeros = 0
-    for j in 1:N
-        if j % 2 == 1  # 奇数位
-            if base[j] == 0
-                odd_zeros += 1
-            else
-                odd_ones += 1
-            end
-        else  # 偶数位
-            if base[j] == 1
-                even_ones += 1
-            else
-                even_zeros += 1
-            end
-        end
-    end
-    
-    # 计算振幅：γ^(奇数位1的数量 + 偶数位0的数量) * (-1)^(偶数位0的数量)
-    return sin(θ/2)^(odd_zeros) * (-sin(θ/2))^even_ones * cos(θ/2)^(even_ones+odd_zeros)
+#对于｜01010101...>态，做rotation后的振幅计算，从右往左计数
+function Z2tilde_overlap(exp::Tuple{Int64, Int64, Int64, Int64}, θ::Real)
+    even_zeros, even_ones, odd_zeros, odd_ones = exp
+    return sin(θ/2)^(even_ones) * (-sin(θ/2))^odd_zeros * cos(θ/2)^(even_zeros+odd_ones)
 end
-
 
 function rotated_psi_state_mss(::Type{T}, k::Int64, θ::Real) where {N, T<: BitStr{N}}
     # params: a state in maximum symmetry space, and the momentum of the state
     # return: the state in total space
     MSS, MSS_dic, qlist = PXP_MSS_basis(T, k)
-    cos_half_θ = cos(θ/2)
-    sin_half_θ = sin(θ/2)
     basisK, k_dic = PXP_K_basis(T, k)
     
     rotated_state = zeros(Float64, length(MSS))
@@ -118,13 +100,15 @@ function rotated_psi_state_mss(::Type{T}, k::Int64, θ::Real) where {N, T<: BitS
         Z = sqrt(qlist[i])*Y/2
         
         # 计算基态在旋转后的振幅
-        amp1 = even_zeros(base, θ)
-        amp2 = even_ones(base, θ)
+        exp = count_zeros_and_ones(base)
+        amp1 = Z2_overlap(exp, θ)
+        amp2 = Z2tilde_overlap(exp, θ)
         
         rotated_state[i] = Z*N*sqrt(2)*(amp1+amp2)
         
     end
     
+    # return rotated_state
     return rotated_state ./ norm(rotated_state)
 end
 rotated_psi_state_mss(N::Int64, k::Int64, θ::Real) = rotated_psi_state_mss(BitStr{N, Int}, k, θ)
