@@ -25,15 +25,15 @@ using Yao: arrayreg, density_matrix, von_neumann_entropy, expect, matblock
     @test isapprox(cent_cc, 0.19684135629232746, atol=1e-3) 
     @test cent_page > 0
 
-    # The qfi_dw of Z2 state should be 0
+    # The qfi_anti_ferro_order of Z2 state should be 0
     z2state=zeros(322)
     z2state[end]=1
-    @test isapprox(qfi(domain_wall(N), z2state),0)
+    @test isapprox(qfi(anti_ferro_order(N), z2state),0)
 
-    # The qfi_dw of Z2 state should be 0(use matrix form function), and qfi_dw of 1 state should be 48
-    Ob=diagm(domain_wall(N))
+    # The qfi_anti_ferro_order of Z2 state should be 0(use matrix form function), and qfi_anti_ferro_order of 1 state should be 48
+    Ob=diagm(anti_ferro_order(N))
     @test isapprox(qfi(Ob, z2state),0)
-    @test qfi(domain_wall(4), ones(7)) == 48.0
+    @test qfi(anti_ferro_order(4), ones(7)) == 48.0
 
     # The qfi_particlenumber of Z2 state should be 0, and particlenumber is [0.0, 1.0, 1.0, 1.0, 2.0, 1.0, 2.0]
     P=particlenumber(4)
@@ -56,10 +56,10 @@ using Yao: arrayreg, density_matrix, von_neumann_entropy, expect, matblock
     vec_202 = vecs[:, 202]
     vec_82 = vecs[:, 82]
 
-    qfi_728 = qfi(domain_wall(16), vec_728) / 16
-    qfi_408 = qfi(domain_wall(16), vec_408) / 16
-    qfi_202 = qfi(domain_wall(16), vec_202) / 16
-    qfi_82 = qfi(domain_wall(16), vec_82) / 16
+    qfi_728 = qfi(anti_ferro_order(16), vec_728) / 16
+    qfi_408 = qfi(anti_ferro_order(16), vec_408) / 16
+    qfi_202 = qfi(anti_ferro_order(16), vec_202) / 16
+    qfi_82 = qfi(anti_ferro_order(16), vec_82) / 16
     
     @test isapprox(qfi_728, 7.899781, atol=1e-6) # qfi value via Pappalardi et al. 2018, PHYSICAL REVIEW LETTERS 129, 020601 (2022)
     @test isapprox(qfi_408, 7.6411086, atol=1e-6)
@@ -153,3 +153,18 @@ end
     @test isapprox(subenergy, subenergy1, atol=1e-6)
 end
 
+@testset "domain_wall_density" begin
+    N=12
+    Dwd=domain_wall_density(N)
+    Z2=zeros(322);Z2[end]=1
+    @test domain_wall_density(4)== [0.0, 0.5, 0.5, 0.5, 1.0, 0.5, 1.0]
+    @test (Dwd.*Z2)[end]==1
+
+    energy, states= eigen(PXP_Ham(N))
+    timelis=collect(0:0.1:10)
+    stlis=wf_time_evolution(Z2,timelis, energy,states)
+    Dwdlis=[norm(st'*(Dwd.*st)) for st in stlis]
+
+    @test Dwdlis[1] ≈ 1.0
+    @test Dwdlis[end-9:end] ≈ [0.7851206872658141, 0.8309417480692536, 0.8649731584144107, 0.88533782942354, 0.8911456311707486, 0.882431049393456, 0.860052257130964, 0.82558164460555, 0.7812079308595815, 0.729654713140784]
+end
