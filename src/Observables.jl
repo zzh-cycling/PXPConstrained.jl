@@ -120,25 +120,56 @@ function qfi(Ob::Matrix{Float64}, state::Vector{T}) where {T <: Real}
     return F_Q
 end
 
-function domain_wall(::Type{T}, pbc::Bool=true) where {N, T <: BitStr{N}}
+function anti_ferro_order(::Type{T}, pbc::Bool=true) where {N, T <: BitStr{N}}
 #param N: Number of sites
-#return: domain_wall_density diagonal elements
+#return:  antiferromagnetic order diagonal elements
 #The eigenvectors of this operator are going from -N to N, increasing by 2, totally N+1 eigenvectors. Number of each eigenvalues is N choose k, 
 #where k is the number of domain walls when we consider total Hilbert space. Defined as sum_i Z_i =1/2 (-1)^(i+1) * Z_i, we aim for spin systems.(S_Z= 1/2 Pauli Z)
     basis = PXP_basis(T, pbc)
     l=length(basis)
-    dw = zeros(l)
+    anti_ferro = zeros(l)
 
     mask = bmask(T, collect(2:2:N)...)
     for (idx, str) in enumerate(basis)
         masked_str = flip(str, mask)
         Zi=sum([masked_str...].-1/2)
-        dw[idx] = Zi
+        anti_ferro[idx] = Zi
     end
 
-    return dw
+    return anti_ferro
 end
-domain_wall(N::Int64, pbc::Bool=true) = domain_wall(BitStr{N, Int}, pbc)
+anti_ferro_order(N::Int64, pbc::Bool=true) = anti_ferro_order(BitStr{N, Int}, pbc)
+
+function domain_wall_density(::Type{T}, pbc::Bool=true) where {N, T <: BitStr{N}}
+    # return domain_wall_density， defined as 1/N sum_i (1-Z_i*Z_{i+1})/2
+    basis = PXP_basis(T, pbc)
+    l=length(basis)
+    anti_ferro = zeros(l)
+
+    for (idx, str) in enumerate(basis)
+        sum_walls = 0
+        for i in 1:N-1
+            # Convert bits to Z_i values: 0->1, 1->-1
+            z_i = str[i] == 0 ? 1 : -1
+            z_ip1 = str[i+1] == 0 ? 1 : -1
+            # Add (1-Z_i*Z_{i+1})/2 which is 1 for a domain wall, 0 otherwise
+            sum_walls += (1 - z_i * z_ip1) / 2
+        end
+        
+        # Handle periodic boundary condition if needed
+        if pbc
+            z_1 = str[1] == 0 ? 1 : -1
+            z_N = str[N] == 0 ? 1 : -1
+            sum_walls += (1 - z_N * z_1) / 2
+        end
+        
+        # Normalize by N
+        anti_ferro[idx] = sum_walls / N
+    end
+
+    return anti_ferro
+end
+domain_wall_density(N::Int64, pbc::Bool=true) = domain_wall_density(BitStr{N, Int}, pbc)
 
 function particlenumber(::Type{T},pbc::Bool=true) where {N, T <: BitStr{N}}
 #param N: Number of sites,return: Particle number operator
