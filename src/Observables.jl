@@ -144,7 +144,7 @@ function domain_wall_density(::Type{T}, pbc::Bool=true) where {N, T <: BitStr{N}
     # return domain_wall_density， defined as 1/N sum_i (1-Z_i*Z_{i+1})/2
     basis = PXP_basis(T, pbc)
     l=length(basis)
-    anti_ferro = zeros(l)
+    dwd = zeros(l)
 
     for (idx, str) in enumerate(basis)
         sum_walls = 0
@@ -164,10 +164,10 @@ function domain_wall_density(::Type{T}, pbc::Bool=true) where {N, T <: BitStr{N}
         end
         
         # Normalize by N
-        anti_ferro[idx] = sum_walls / N
+        dwd[idx] = sum_walls / N
     end
 
-    return anti_ferro
+    return dwd
 end
 domain_wall_density(N::Int64, pbc::Bool=true) = domain_wall_density(BitStr{N, Int}, pbc)
 
