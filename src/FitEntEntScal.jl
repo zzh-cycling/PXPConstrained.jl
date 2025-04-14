@@ -127,18 +127,20 @@ function fitpage_curve(SvN_list::Vector{Float64}; err::Vector{Float64}=0.0SvN_li
 end
 
 function fit_both(
+    llis::Vector{Int64},
     SvN_list::Vector{Float64},
     SvN_list2::Vector{Float64},
     err=0.0,
     mincut::Int=1,
     pbc::Bool=true)
 
+    @assert length(llis) == length(SvN_list) "length of llis should be $(length(SvN_list)), but got $(length(llis))"
+    
     function fit_cc(SvN_list::Vector{Float64},mincut::Int=1,
         pbc::Bool=true)
         logChord(l, L) = @. log(sin(π * l /L))/6
        
         L = length(SvN_list) + 1
-
         # fit scaling
         lm(x,p) = @. p[1] * x + p[2]
         xdata = logChord([1:L-1;],L); 
@@ -157,8 +159,11 @@ function fit_both(
     
     function fit_pagecurve(SvN_list::Vector{Float64},mincut::Int=1,
         pbc::Bool=true)
+        L = length(SvN_list) + 1
+        pagecurve(l, L) = @. log(2)*min(l,L-l) - 2^(min(l,L-l))/(2^(L-min(l,L-l))*2)
+        xdata = pagecurve([1:L-1;],L); 
         lm(x,p) = @. p[1] * x + p[2]
-        xdata = pagecurve([1:L-1;],L); #log(2)*min(l,L-l)- 2^(min(l,L-l))/(2^(L-min(l,L-2))*2)
+       
         fit = curve_fit(lm, xdata[mincut:L-mincut], SvN_list[mincut:L-mincut], [0.5, 0.0])
         fitparam = fit.param
         cent = fitparam[1]
@@ -168,15 +173,20 @@ function fit_both(
         return xdata,cent,cent_err, fitparam, fit
     end
 
+    logChord(l, L) = @. log(sin(π * l /L))/6
+    pagecurve(l, L) = @. log(2)*min(l,L-l) - 2^(min(l,L-l))/(2^(L-min(l,L-l))*2)
     xdata,cent,cent_err ,fitparam, fit=fit_cc(SvN_list, mincut, pbc)
     xdata2,cent2, cent_err2,fitparam2, fit2=fit_pagecurve(SvN_list2, mincut, pbc)
     L = length(SvN_list) + 1
-    fig=scatter(1:L-1, SvN_list, ylabel=L"S_{vN}", xlabel=L"l", frame=:box, yerror=err, label=false, lw=2, marker=:circle, xlims=(-1, L+1),color="red",markersize=6)
 
-    plot!(1:L-1, fitparam[1] .* logChord([1:L-1;], L) .+ fitparam[2], label=L"\frac{c}{3}\ln\sin(π l/L),  c=1.89 ",color="red", linestyle=:dash)
+    fig=scatter(llis, SvN_list, ylabel=L"S_{vN}", xlabel=L"l", frame=:box, yerror=err, label=false, lw=2, marker=:circle, xlims=(-1, L+1),color="red",markersize=6, xticks=llis, legend_background_color=nothing,
+    legend_foreground_color=nothing,
+    )
 
-    scatter!(1:L-1, SvN_list2, ylabel=L"S_{vN}", xlabel=L"l", frame=:box, yerror=err, label=false, lw=2, marker=:circle, xlims=(-1, L+1),color=RGB(12/255, 159/255, 250/255),markersize=6)
-    plot!( 1:L-1, fitparam2[1] .*  linearGrowthDecay([1:L-1;],L) .+ fitparam2[2], label=L"\alpha l-2^{2l-L-1}, \alpha=0.42", linestyle=:dash,color=RGB(12/255, 159/255, 250/255))
+    plot!(llis, fitparam[1] .* logChord(llis, L) .+ fitparam[2], label=latexstring("\\frac{c}{3}\\ln\\sin(π l/L),  c=$(round(cent,digits=2))"),color="red", linestyle=:dash)
+
+    scatter!(llis, SvN_list2, ylabel=L"S_{vN}", xlabel=L"l", frame=:box, yerror=err, label=false, lw=2, marker=:circle, xlims=(-1, L+1),color=RGB(12/255, 159/255, 250/255),markersize=6)
+    plot!(llis, fitparam2[1] .*  pagecurve([1:L-1;],L) .+ fitparam2[2], label=latexstring("\\alpha l-2^{2l-L-1}, \\alpha=$(round(fitparam2[1],digits=2))"), linestyle=:dash,color=RGB(12/255, 159/255, 250/255))
 
         # plot rescaled
         # plot!(subplot=2, framestyle=:box,
