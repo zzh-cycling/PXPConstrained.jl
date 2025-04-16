@@ -48,6 +48,10 @@ function ee_PXP_scaling_fig(N::Int64, state::Vector{ET},fit::String) where {ET}
     if fit=="Page"
         cent, fig=fitpage_curve(EElis; mincut=1)
     end
+
+    if fit=="L+lnL"
+        cent, fig=fitLpluslnL(EElis; mincut=1)
+    end
     return cent, fig
 end
 

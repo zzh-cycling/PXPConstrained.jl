@@ -10,7 +10,7 @@ export ee, ee_PXP_idx, ee_PXP_scaling_fig, ee_PXP_state, tri_mutual_information,
 
 export proj_Z2, proj_invZ2, sep_scar_FSA, sep_scar_Ob, proj_Ob, proj_FSA, proj_FSA2total, sep_scar_FSA, sep_scar_exact, gene_scar
 
-export fitCCEntEntScal, fitpage_curve, fit_both
+export fitCCEntEntScal, fitpage_curve, fitLpluslnL, fit_both
 
 export PXP_Ham_sparse, PXP_K_Ham_sparse, PXP_MSS_Ham_sparse, iso_total2K_sparse, iso_total2MSS_sparse, iso_K2MSS_sparse
 

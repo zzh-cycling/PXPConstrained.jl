@@ -126,6 +126,42 @@ function fitpage_curve(SvN_list::Vector{Float64}; err::Vector{Float64}=0.0SvN_li
 
 end
 
+function fitLpluslnL(SvN_list::Vector{Float64}; err::Vector{Float64}=0.0SvN_list, mincut::Int=1)
+    # Now suppose such system has L + lnL SvN, like the majorana spin liquid.
+    
+    pagecurve(l, L) = @. log(2)*min(l,L-l) - 2^(min(l,L-l))/(2^(L-min(l,L-l))*2)
+    logChord(l, L) = @. log(sin(π * l /L))/6
+    llis= collect(1:length(SvN_list))
+    L = length(SvN_list) + 1
+
+    # fit scaling
+    lm(x, p) = @. p[1] * pagecurve(x,L) + p[2] * logChord(x,L) + p[3]
+    fit = curve_fit(lm, llis[mincut:L-mincut], SvN_list[mincut:L-mincut], [0.5, 0.5,0.0])
+    params = coef(fit)
+    error = stderror(fit)
+    @show params, error
+
+    # plot scaling
+    fig = scatter(llis, SvN_list, ylabel=L"S_{vN}", xlabel=L"l", frame=:box,
+        yerror=err, label=false, lw=2, marker=:circle, xlims=(-1, L+1))
+    plot!(llis, lm(llis,p), label=false)
+    
+    # plot rescaled
+    plot!(subplot=2, framestyle=:box,
+        inset = (1, bbox(0.35, 0.15, 0.3, 0.35, :bottom)))
+
+    xdata=pagecurve.(llis,L) + params[2]/params[1] .* logChord.(llis,L)
+    scatter!(subplot=2, lw=2, xdata, SvN_list,
+        xlabel=L"a(\ln2) l- 2^{2l-L-1} + b\frac{1}{3}\ln\sin(π l/L)", yerror=err, marker=:circle, label=false)
+    plot!(subplot=2, xdata, params[1] * xdata .+ params[3], lw=2,label=(@sprintf "a=%.2f, b=%.2f" params[1] params[2]), 
+    legend_background_color=nothing,
+    legend_foreground_color=nothing,
+    legendsize=1)
+
+    return cent, fig
+
+end
+
 function fit_both(
     llis::Vector{Int64},
     SvN_list::Vector{Float64},
