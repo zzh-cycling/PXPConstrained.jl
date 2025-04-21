@@ -72,4 +72,3 @@ savefig("/Users/cycling/Documents/projects/quantumErgotropy/figs/exact_scar/exac
 
 Plots.plot(Nlis, deltaS, seriestype=:scatter, xlabel=L"N", ylabel=L"\Delta S= S(|\Psi, k=0 \rangle)- S(|\Psi, k=\pi \rangle)", legend=false)
 savefig("/Users/cycling/Documents/projects/quantumErgotropy/figs/exact_scar/exact_wosymmetry/EE/DeltaSk0kpiN.pdf")
-

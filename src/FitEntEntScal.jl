@@ -144,7 +144,7 @@ function fitLpluslnL(SvN_list::Vector{Float64}; err::Vector{Float64}=0.0SvN_list
     # plot scaling
     fig = scatter(llis, SvN_list, ylabel=L"S_{vN}", xlabel=L"l", frame=:box,
         yerror=err, label=false, lw=2, marker=:circle, xlims=(-1, L+1))
-    plot!(llis, lm(llis,p), label=false)
+    plot!(llis, lm(llis,params), label=false)
     
     # plot rescaled
     plot!(subplot=2, framestyle=:box,
@@ -158,7 +158,7 @@ function fitLpluslnL(SvN_list::Vector{Float64}; err::Vector{Float64}=0.0SvN_list
     legend_foreground_color=nothing,
     legendsize=1)
 
-    return cent, fig
+    return params[1:2], fig
 
 end
 
