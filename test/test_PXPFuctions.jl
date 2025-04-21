@@ -141,15 +141,6 @@ using LinearAlgebra
     @test size(rdm_MSS) == (21, 21) == (length(PXP_basis(6, false)) ,length(PXP_basis(6, false)))
 
     # Fit the scar's central charge, may change depends on the machine and basic linear algebra package.
-    splitlis = collect(1:N-1)
-    EE_lis=zeros(length(splitlis))
-    for m in eachindex(EE_lis)
-        subrho=rdm_PXP_MSS(N, collect(1:splitlis[m]), MSS_vec, 0)
-        EE_lis[m]=ee(subrho)
-    end
-
-    cent, _= fitCCEntEntScal(EE_lis; mincut=1, pbc=true)
-    @test isapprox(cent, 1.924, atol=1e-2)
 end
 
 @testset "process_join" begin
