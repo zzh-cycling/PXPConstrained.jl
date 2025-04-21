@@ -104,7 +104,7 @@ function tri_mutual_information(N::Int64, subsystems::Tuple{Vector{Int64}, Vecto
     return I_ABC
 end
 
-function qfi(Ob::Vector{Float64}, state::Vector{T}) where {T <: Real}
+function qfi(Ob::Vector{Float64}, state::Vector{T}) where T    
     # Calculate the quantum fisher information, espeically for diagonal operators.
     DeltaOb=state'*(Ob.^2 .*state)-(state'*(Ob.*state))^2
     # Calculate the Quantum Fisher Information
@@ -114,7 +114,7 @@ function qfi(Ob::Vector{Float64}, state::Vector{T}) where {T <: Real}
     return F_Q
 end
 
-function qfi(Ob::Matrix{Float64}, state::Vector{T}) where {T <: Real}
+function qfi(Ob::Matrix{Float64}, state::Vector{T}) where T
     rho=state*state'
     DeltaOb=tr(rho*Ob^2)-tr(rho*Ob)^2
     # Calculate the Quantum Fisher Information
