@@ -1,5 +1,3 @@
-ITensors.set_warn_order(60)
-
 function proj_FSA(::Type{T}) where {N, T <: BitStr{N}}
 #Generate the projection matrix for the FSA subspace, which should equals to identity matrix in FSA subspace.
 #Meanwhile not equal to identity matrix in the total Hilbert space. Input N is the size of the system, return the projection matrix.
