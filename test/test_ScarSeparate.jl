@@ -84,6 +84,16 @@ end
     energy, states= eigen(H)
     scar, total_states = sep_scar_FSA(T, energy, states)
 
+    splitlis = collect(1:N-1)
+    EE_lis=zeros(length(splitlis))
+    for m in eachindex(EE_lis)
+        subrho=rdm_PXP(N, collect(1:splitlis[m]), scar)
+        EE_lis[m]=ee(subrho)
+    end
+
+    cent, _= fitCCEntEntScal(EE_lis; mincut=1, pbc=true)
+    @test isapprox(cent, 1.860152808765914, atol=0.01)
+
     Ob=randn((322, 322))
     proj=proj_Ob(energy, states, Ob)
     @test size(proj)==(22,22)
