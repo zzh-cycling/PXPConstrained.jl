@@ -144,6 +144,7 @@ end
 
 
 function gene_scar(N::Int64)
+    ITensors.disable_warn_order()
     B0=Matrix{Float64}([1.0 0.0 0.0 ; 0.0 1.0 0.0])
     B1=Matrix{Float64}(sqrt(2).*[0.0 0.0 0.0 ; 1.0 0.0 1.0])
     C0=Matrix{Float64}([0.0 -1.0; 1.0 0.0 ;0.0 0.0])
