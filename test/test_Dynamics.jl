@@ -98,6 +98,25 @@ end
 
 end
 
+# @testset "rotated_psi_state_mss_minus" begin
+#     # Test the rotated state by the on-site rotation exp(i θ/2 Y)
+#     N = 12
+#     for θ in 0.0:0.1:π
+#         rotated_state = rotated_psi_state_mss(N, 0, θ)
+#         @test isapprox(norm(rotated_state), 1.0, atol=1e-10)
+#     end
+#     @test norm(rotated_psi_state_mss(12,0, 0)) ≈ 1.0 atol = 1e-10
+#     @test rotated_psi_state_mss(12,0, 0) ≈ rotated_psi_state_mss(12,0, π) atol = 1e-10
+#     N = 14
+#     for θ in 0.0:0.1:π
+#         rotated_state = rotated_psi_state_mss(N, 0, θ)
+#         @test isapprox(norm(rotated_state), 1.0, atol=1e-10)
+#     end
+#     @test norm(rotated_psi_state_mss(14,0, 0)) ≈ 1.0 atol = 1e-10
+#     @test abs.(rotated_psi_state_mss(14,0, 0)) ≈ abs.(rotated_psi_state_mss(14,0, π)) atol = 1e-10
+
+# end
+
 #even_zeros, even_ones, odd_zeros, odd_ones
 @testset "count_zeros_and_ones" begin
     # Z2tilde state
