@@ -2,7 +2,7 @@ using Test
 using PXPConstrained, BitBasis    
 using LinearAlgebra
 
-@testset "pxp functions" begin
+@testset "pxp ham" begin
     N=12
     state=BitStr{N}(0)
     res = PXPConstrained.Fibonacci_chain_OBC(BitStr{N})
@@ -33,16 +33,252 @@ using LinearAlgebra
     @test ishermitian(H)
     @test H[1, 1]==H[end,end] ≈ 0.0
 
+    
+end
+
+@testset "basis" begin
+    N=18
+    basis = PXP_MSS_basis(N,div(N,2))[1]
+    basisMSSm = PXP_MSS_basis(N,0,-1)[1]
+    @test filter(x -> !(x in basis), basisMSSm)==[18981]
+end
+
+function testzeromodes(N)
+    sum1=0
+    sum2=0
+    sum2m=0
+    hss = length(findall(x -> isapprox(x,0,atol=1e-10), eigvals(PXP_MSS_Ham(N, 0))))
+    hssm = length(findall(x -> isapprox(x,0,atol=1e-10), eigvals(PXP_MSS_Ham(N, 0, -1))))
+    hss1=length(findall(x -> isapprox(x,0,atol=1e-10), eigvals(PXP_MSS_Ham(N,div(N,2)))))
+    hss1m=length(findall(x -> isapprox(x,0,atol=1e-10), eigvals(PXP_MSS_Ham(N,div(N,2),-1))))
+    sum2=hss+hssm
+    sum2m=hss1+hss1m
+    
+    for i in 0:N-1
+        hk = PXP_K_Ham(N, i)
+        sum1+=length(findall(x -> isapprox(x,0,atol=1e-10), eigvals(hk)))
+    end
+
+    return sum1, sum2, sum2m
+end
+
+@testset "zero modes" begin
+    zeromodeslis=[13, 22, 37, 59, 100, 165, 269]
+    for (idx,i) in enumerate(10:2:20)
+        sum1,sum2, sum2m=testzeromodes(i)
+        @test sum1==zeromodeslis[idx]
+        @test sum2==length(findall(x -> isapprox(x,0,atol=1e-10), eigvals(PXP_K_Ham(i, 0))))
+        @test sum2m==length(findall(x -> isapprox(x,0,atol=1e-10), eigvals(PXP_K_Ham(i, div(i,2)))))
+    end
+end
+
+@testset "pxp k and mss 4n" begin
+    N=12
+    basisK= PXP_K_basis(N, 3)[1]
+    @test length(basisK) == 26
+    @test BitStr{N}(1)==basisK[1]
+    @test basisK[end].buf <<1 ==1322
+
+    basisK= PXP_K_basis(N, 0)[1]
+    @test length(basisK) == 31
+    @test BitStr{N}(0)==basisK[1]
+    @test basisK[end].buf <<1 ==2730
+    @test basisK[2].buf==1
+    @test basisK[3].buf==5
+
+    basisKpi= PXP_K_basis(N, div(N,2))[1]
+    @test length(basisKpi) == 29
+    @test BitStr{N}(1)==basisKpi[1]
+    @test basisKpi[end].buf <<1 ==2730
+    @test filter(x -> !(x in basisKpi), basisK)==[BitStr{N}(0),BitStr{N}(585)]
+
+    basis = PXP_MSS_basis(N,0)[1]
+    @test length(basis) == 26
+    @test BitStr{N}(0)==basis[1]
+    @test basis[end].buf <<1==2730
+
+    basisMSSm = PXP_MSS_basis(N,0,-1)[1]
+    @test length(basisMSSm) == 5
+    @test basisMSSm[1].buf == 37
+    @test basisMSSm[end].buf==293
+
+    try
+        # Testing invalid input parameters
+        basis = PXP_MSS_basis(N,3)[1]
+    catch e
+        # If the function correctly validates inputs, we expect an error
+        @test e isa Exception
+    end
+
+    try
+        # Testing invalid input parameters
+        basis = PXP_MSS_basis(N,3,-1)[1]
+    catch e
+        # If the function correctly validates inputs, we expect an error
+        @test e isa Exception
+    end
+
+    basispi = PXP_MSS_basis(N,div(N,2))[1]
+    @test basispi == basisMSSm #only for N<=16
+
+    basispim = PXP_MSS_basis(N,div(N,2),-1)[1]
+    @test length(basispim) == 24
+    @test BitStr{N}(1)==basispim[1]
+    @test basispim[end].buf <<1==2730
+
     hk = PXP_K_Ham(N, 0)
     @test size(hk) == (31, 31)
     @test ishermitian(hk)
     @test hk[1, 1] == hk[end, end]≈ 0.0
+    zeromodes=findall(x -> isapprox(x,0,atol=1e-10), eigvals(hk))
+    @test zeromodes==[14, 15, 16, 17, 18]
+
+    hk = PXP_K_Ham(N, 3)
+    @test size(hk) == (26, 26)
+    @test ishermitian(hk)
+    @test hk[1, 1] == hk[end, end] ≈ 0.0
+    @test findall(x -> isapprox(x,0,atol=1e-10), eigvals(hk))==[13, 14]
+
+    hk = PXP_K_Ham(N, div(N,2))
+    @test size(hk) == (29, 29)
+    @test ishermitian(hk)
+    @test hk[1, 1] == hk[end, end] ≈ 0.0
+    zeromodes5=findall(x -> isapprox(x,0,atol=1e-10), eigvals(hk))
+    @test zeromodes5==[14, 15, 16]
+
+    hmss=PXP_MSS_Ham(N, 0)
+    @test size(hmss) == (length(basis),length(basis))
+    @test ishermitian(hmss)
+    @test hmss[1, 1] == hmss[end, end] ≈ 0.0
+    zeromodes1=findall(x -> isapprox(x,0,atol=1e-10), eigvals(hmss))
+    @test zeromodes1==[12, 13, 14, 15]
+
+    hmss=PXP_MSS_Ham(N, 0, -1)
+    @test size(hmss) == (length(basisMSSm), length(basisMSSm))
+    @test ishermitian(hmss)
+    @test hmss[1, 1] == hmss[end, end] ≈ 0.0
+    zeromodes2=findall(x -> isapprox(x,0,atol=1e-10), eigvals(hmss))
+    @test zeromodes2==[3]
+    @test length(zeromodes2)+length(zeromodes1) == length(zeromodes)
+
+    hmss=PXP_MSS_Ham(N, div(N,2))
+    @test size(hmss) == (length(basispi), length(basispi))
+    @test ishermitian(hmss)
+    @test hmss[1, 1] == hmss[end, end] ≈ 0.0
+    zeromodes3=findall(x -> isapprox(x,0,atol=1e-10), eigvals(hmss))
+    @test zeromodes3==[3]
+
+    hmss=PXP_MSS_Ham(N, div(N,2), -1)
+    @test size(hmss) == (length(basispim), length(basispim))
+    @test ishermitian(hmss)
+    @test hmss[1, 1] == hmss[end, end] ≈ 0.0
+    zeromodes4=findall(x -> isapprox(x,0,atol=1e-10), eigvals(hmss))
+    @test zeromodes4==[12, 13]
+    @test length(zeromodes3)+length(zeromodes4)==length(zeromodes5)
+end
+
+@testset "pxp k and mss 4n+2" begin
+    N=14
+    basisK= PXP_K_basis(N, 3)[1]
+    @test length(basisK) == 26
+    @test BitStr{N}(0)==basisK[1]
+    @test basisK[end].buf <<1 ==1322
+
+    basisK= PXP_K_basis(N, 0)[1]
+    @test length(basisK) == 31
+    @test BitStr{N}(0)==basisK[1]
+    @test basisK[end].buf <<1 ==2730
+    @test basisK[2].buf==1
+    @test basisK[3].buf==5
+
+    basisKpi= PXP_K_basis(N, div(N,2))[1]
+    @test length(basisKpi) == 29
+    @test BitStr{N}(1)==basisKpi[1]
+    @test basisKpi[end].buf <<1 ==2730
+    @test filter(x -> !(x in basisKpi), basisK)==[BitStr{N}(0),BitStr{N}(585)]
+
+    basis = PXP_MSS_basis(N,0)[1]
+    @test length(basis) == 26
+    @test BitStr{N}(0)==basis[1]
+    @test basis[end].buf <<1==2730
+
+    basisMSSm = PXP_MSS_basis(N,0,-1)[1]
+    @test length(basisMSSm) == 5
+    @test basisMSSm[1].buf == 37
+    @test basisMSSm[end].buf==293
+
+    try
+        # Testing invalid input parameters
+        basis = PXP_MSS_basis(N,3)[1]
+    catch e
+        # If the function correctly validates inputs, we expect an error
+        @test e isa Exception
+    end
+
+    try
+        # Testing invalid input parameters
+        basis = PXP_MSS_basis(N,3,-1)[1]
+    catch e
+        # If the function correctly validates inputs, we expect an error
+        @test e isa Exception
+    end
+
+    basispi = PXP_MSS_basis(N,div(N,2))[1]
+    @test basispi == basisMSSm #only for N<=16
+
+    basispim = PXP_MSS_basis(N,div(N,2),-1)[1]
+    @test length(basispim) == 24
+    @test BitStr{N}(1)==basispim[1]
+    @test basispim[end].buf <<1==2730
+
+    hk = PXP_K_Ham(N, 0)
+    @test size(hk) == (31, 31)
+    @test ishermitian(hk)
+    @test hk[1, 1] == hk[end, end]≈ 0.0
+    zeromodes=findall(x -> isapprox(x,0,atol=1e-10), eigvals(hk))
+    @test zeromodes==[14, 15, 16, 17, 18]
+
+    hk = PXP_K_Ham(N, 3)
+    @test size(hk) == (26, 26)
+    @test ishermitian(hk)
+    @test hk[1, 1] == hk[end, end] ≈ 0.0
+    @test findall(x -> isapprox(x,0,atol=1e-10), eigvals(hk))==[13, 14]
+
+    hk = PXP_K_Ham(N, div(N,2))
+    @test size(hk) == (29, 29)
+    @test ishermitian(hk)
+    @test hk[1, 1] == hk[end, end] ≈ 0.0
+    @test findall(x -> isapprox(x,0,atol=1e-10), eigvals(hk))==[14, 15, 16]
 
     hmss=PXP_MSS_Ham(N, 0)
     @test size(hmss) == (26, 26)
     @test ishermitian(hmss)
     @test hmss[1, 1] == hmss[end, end] ≈ 0.0
+    zeromodes1=findall(x -> isapprox(x,0,atol=1e-10), eigvals(hmss))
+    @test zeromodes1==[12, 13, 14, 15]
 
+    hmss=PXP_MSS_Ham(N, 0, -1)
+    @test size(hmss) == (5, 5)
+    @test ishermitian(hmss)
+    @test hmss[1, 1] == hmss[end, end] ≈ 0.0
+    zeromodes2=findall(x -> isapprox(x,0,atol=1e-10), eigvals(hmss))
+    @test zeromodes2==[3]
+    @test length(zeromodes2)+length(zeromodes1) == length(zeromodes)
+
+    hmss=PXP_MSS_Ham(N, div(N,2))
+    @test size(hmss) == (24, 24)
+    @test ishermitian(hmss)
+    @test hmss[1, 1] == hmss[end, end] ≈ 0.0
+    @test findall(x -> isapprox(x,0,atol=1e-10), eigvals(hmss))==[12, 13]
+
+    hmss=PXP_MSS_Ham(N, div(N,2), -1)
+    @test size(hmss) == (24, 24)
+    @test ishermitian(hmss)
+    @test hmss[1, 1] == hmss[end, end] ≈ 0.0
+    @test findall(x -> isapprox(x,0,atol=1e-10), eigvals(hmss))==[12, 13, 14, 15]
+end
+
+@testset "iso, reduced density matrix and map" begin
     # map from total basis to FSA basis, isometry which should satisfy u'*u=I, belike:
     u = iso_total2FSA(N)
     @test size(u) == (322, 13)

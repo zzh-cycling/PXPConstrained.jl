@@ -87,28 +87,43 @@ function Z2tilde_overlap(exp::Tuple{Int64, Int64, Int64, Int64}, θ::Real)
     return sin(θ/2)^(even_ones) * (-sin(θ/2))^odd_zeros * cos(θ/2)^(even_zeros+odd_ones)
 end
 
-function rotated_psi_state_mss(::Type{T}, k::Int64, θ::Real) where {N, T<: BitStr{N}}
+function rotated_psi_state_mss(::Type{T}, k::Int64, θ::Real, inv::Int64=1) where {N, T<: BitStr{N}}
     # params: a state in maximum symmetry space, and the momentum of the state
     # return: the state in total space
-    MSS, MSS_dic, qlist = PXP_MSS_basis(T, k)
+    MSS, MSS_dic, qlist = PXP_MSS_basis(T, k, inv)
     basisK, k_dic = PXP_K_basis(T, k)
     
     rotated_state = zeros(Float64, length(MSS))
 
-    for (i, base) in enumerate(MSS)
-        Y = sqrt(length(k_dic[base]))/N
-        Z = sqrt(qlist[i])*Y/2
-        
-        # 计算基态在旋转后的振幅
-        exp = count_zeros_and_ones(base)
-        amp1 = Z2_overlap(exp, θ)
-        amp2 = Z2tilde_overlap(exp, θ)
-        
-        rotated_state[i] = Z*N*sqrt(2)*(amp1+amp2)
-        
+    if inv==1
+        for (i, base) in enumerate(MSS)
+            Y = sqrt(length(k_dic[base]))/N
+            Z = sqrt(qlist[i])*Y/2
+            
+            # 计算基态在旋转后的振幅
+            exp = count_zeros_and_ones(base)
+            amp1 = Z2_overlap(exp, θ)
+            amp2 = Z2tilde_overlap(exp, θ)
+            @show base, amp1, amp2
+            rotated_state[i] = Z*N*sqrt(2)*(amp1+amp2)
+            
+        end
+    else
+        for (i, base) in enumerate(MSS)
+            Y = sqrt(length(k_dic[base]))/N
+            Z = sqrt(qlist[i])*Y/2
+            
+            # 计算基态在旋转后的振幅
+            exp = count_zeros_and_ones(base)
+            amp1 = Z2_overlap(exp, θ)
+            amp2 = Z2tilde_overlap(exp, θ)
+            @show base, amp1, amp2
+            rotated_state[i] = Z*N*sqrt(2)*(amp1-amp2)
+            
+        end
     end
-    
+
     # return rotated_state
     return rotated_state ./ norm(rotated_state)
 end
-rotated_psi_state_mss(N::Int64, k::Int64, θ::Real) = rotated_psi_state_mss(BitStr{N, Int}, k, θ)
+rotated_psi_state_mss(N::Int64, k::Int64, θ::Real, inv::Int64=1) = rotated_psi_state_mss(BitStr{N, Int}, k, θ, inv)
