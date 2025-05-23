@@ -261,7 +261,7 @@ function iso_K2MSS(::Type{T}, k::Int64, inv::Int64=1) where {N, T <: BitStr{N}}
     # MSS_dic is a dictionary, the key is the representative state of the inversion of n, and the value is the index of the state in the basisK. NOTE that MSS_dic is not sorted, so we need to sort it later.
     qlist = Vector{Int}(undef, 0)
     # Below procedure is to collapse the extra basis in K space that can be converted mutually to MSS space.
-    if inv==1
+    if inv==1 && k==0 || inv==-1 && k==div(N,2)
         for i in eachindex(basisK)
             n = basisK[i]
             # here we calculate the representative state of the inversion of n
@@ -332,7 +332,7 @@ function mapstate_MSS2K(::Type{T}, state::Vector{ET}, k::Int64, inv::Int64=1) wh
             end
         end
 
-    else
+    elseif inv==1 && k==div(N,2) || inv==-1 && k==0
         for i in eachindex(basisK)
             n = basisK[i]
             nR = get_representative(breflect(n))[1]

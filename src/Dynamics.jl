@@ -90,12 +90,14 @@ end
 function rotated_psi_state_mss(::Type{T}, k::Int64, θ::Real, inv::Int64=1) where {N, T<: BitStr{N}}
     # params: a state in maximum symmetry space, and the momentum of the state
     # return: the state in total space
+    @assert k == 0 || k==div(N,2) "k is expected to be 0 or $(div(N,2)), but got $k"
+    @assert inv ==1 || inv==-1 "inv is expected to be 1 or -1, but got $(inv)"
     MSS, MSS_dic, qlist = PXP_MSS_basis(T, k, inv)
     basisK, k_dic = PXP_K_basis(T, k)
     
     rotated_state = zeros(Float64, length(MSS))
 
-    if inv==1
+    if inv==1 && k==0 || inv==-1 && k==div(N,2)
         for (i, base) in enumerate(MSS)
             Y = sqrt(length(k_dic[base]))/N
             Z = sqrt(qlist[i])*Y/2
@@ -104,11 +106,10 @@ function rotated_psi_state_mss(::Type{T}, k::Int64, θ::Real, inv::Int64=1) wher
             exp = count_zeros_and_ones(base)
             amp1 = Z2_overlap(exp, θ)
             amp2 = Z2tilde_overlap(exp, θ)
-            @show base, amp1, amp2
             rotated_state[i] = Z*N*sqrt(2)*(amp1+amp2)
             
         end
-    else
+    elseif inv==-1 && k==0 || inv==1 && k==div(N,2)
         for (i, base) in enumerate(MSS)
             Y = sqrt(length(k_dic[base]))/N
             Z = sqrt(qlist[i])*Y/2
@@ -117,7 +118,6 @@ function rotated_psi_state_mss(::Type{T}, k::Int64, θ::Real, inv::Int64=1) wher
             exp = count_zeros_and_ones(base)
             amp1 = Z2_overlap(exp, θ)
             amp2 = Z2tilde_overlap(exp, θ)
-            @show base, amp1, amp2
             rotated_state[i] = Z*N*sqrt(2)*(amp1-amp2)
             
         end

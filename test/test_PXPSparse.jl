@@ -21,8 +21,8 @@ end
     @test eigvals(Matrix(PXP_K_Ham_sparse(14, 0))) ≈ eigvals(PXP_K_Ham(14, 0))
     @test eigvals(Matrix(PXP_K_Ham_sparse(14, 7))) ≈ eigvals(PXP_K_Ham(14, 7))
     @test eigvals(Matrix(PXP_MSS_Ham_sparse(16, 0))) ≈ eigvals(PXP_MSS_Ham(16, 0))
-    @test_broken eigvals(Matrix(PXP_MSS_Ham_sparse(16, 8))) ≈ eigvals(PXP_MSS_Ham(16, 8))
-    @test_broken PXP_K_Ham_sparse(8,4) ≈ PXP_MSS_Ham_sparse(8,4)
+    @test eigvals(Matrix(PXP_MSS_Ham_sparse(16, 8))) ≈ eigvals(PXP_MSS_Ham(16, 8))
+    @test PXP_K_Ham_sparse(8,4) ≈ PXP_MSS_Ham_sparse(8,4,-1)
 
     vals= eigvals(Matrix(PXP_Ham_sparse(12)))
     @test isapprox(vals.+reverse(vals), zeros(length(vals)), atol=1e-10)
