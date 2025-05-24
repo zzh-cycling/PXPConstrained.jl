@@ -10,7 +10,7 @@ function wf_time_evolution(psi0::Vector{T}, times::Vector{Float64}, energy::Vect
     return wflis
 end
 
-function wf_time_evolution_mss(L::Int, k::Int64, psi0::Vector{ET}, t_values::Vector{Float64}) where {ET}
+function wf_time_evolution_sparse(L::Int, k::Int64, psi0::Vector{ET}, t_values::Vector{Float64}) where {ET}
     # 预先计算时间步长
     dt = t_values[2] - t_values[1]
     H = PXP_MSS_Ham_sparse(L, k)
