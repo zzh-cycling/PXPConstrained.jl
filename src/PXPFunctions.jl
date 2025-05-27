@@ -170,6 +170,7 @@ rdm_PXP(N::Int, subsystems::Vector{Int64}, state::Vector{ET}, pbc::Bool=true) wh
 
 function iso_total2K(::Type{T}, k::Int64) where {N, T <: BitStr{N}}
 #Function to map the total basis to the K space basis, actually is the isometry, defined as W'*W=I, W*W'=P, P^2=P
+    @assert 0<=k<=N-1 "k is expected to be in [0, $(N-1)], but got $k"
 
     basis = PXP_basis(T)
 
@@ -207,6 +208,8 @@ iso_total2K(N::Int, k::Int64) = iso_total2K(BitStr{N, Int}, k)
 
 function mapstate_K2total(::Type{T}, state::Vector{ET}, k::Int64) where {N, T <: BitStr{N}, ET}
     # Map the K space state to total space state
+    @assert 0<=k<=N-1 "k is expected to be in [0, $(N-1)], but got $k"
+
     basis = PXP_basis(T)
     k_dic = Dict{Int, Vector{Int64}}()
     basisK = Vector{T}(undef, 0)
@@ -250,13 +253,15 @@ rdm_PXP_K(N::Int, subsystems::Vector{Int64},state::Vector{ET}, k::Int64) where {
 
 function iso_K2MSS(::Type{T}, k::Int64, inv::Int64=1) where {N, T <: BitStr{N}}
 #Function to map the MSS basis to the K space basis
+    @assert k == 0 || k==div(N,2) "k is expected to be 0 or $(div(N,2)), but got $k"
+    @assert inv ==1 || inv==-1 "inv is expected to be 1 or -1, but got $(inv)"
     basisK, k_dic = PXP_K_basis(T, k)
 
     MSS_dic = Dict{Int, Vector{Int64}}()
     # MSS_dic is a dictionary, the key is the representative state of the inversion of n, and the value is the index of the state in the basisK. NOTE that MSS_dic is not sorted, so we need to sort it later.
     qlist = Vector{Int}(undef, 0)
     # Below procedure is to collapse the extra basis in K space that can be converted mutually to MSS space.
-    if inv==1
+    if inv==1 && k==0 || inv==-1 && k==div(N,2)
         for i in eachindex(basisK)
             n = basisK[i]
             # here we calculate the representative state of the inversion of n
@@ -303,6 +308,9 @@ end
 iso_K2MSS(N::Int, k::Int64, inv::Int64=1) = iso_K2MSS(BitStr{N, Int}, k, inv)
 
 function mapstate_MSS2K(::Type{T}, state::Vector{ET}, k::Int64, inv::Int64=1) where {N, T <: BitStr{N}, ET}
+    @assert k == 0 || k==div(N,2) "k is expected to be 0 or $(div(N,2)), but got $k"
+    @assert inv ==1 || inv==-1 "inv is expected to be 1 or -1, but got $(inv)"
+
     basisK, k_dic = PXP_K_basis(T, k)
 
     MSS_dic = Dict{Int, Vector{Int64}}()
@@ -324,7 +332,7 @@ function mapstate_MSS2K(::Type{T}, state::Vector{ET}, k::Int64, inv::Int64=1) wh
             end
         end
 
-    else
+    elseif inv==1 && k==div(N,2) || inv==-1 && k==0
         for i in eachindex(basisK)
             n = basisK[i]
             nR = get_representative(breflect(n))[1]
@@ -421,6 +429,7 @@ end
 function PXP_K_basis(::Type{T}, k::Int64) where {N, T <: BitStr{N}}
 #params: a int of lattice number and momentum of system
 #return: computational basis in given momentum kinetically constrained subspace with decimal int form in PXP model
+    @assert 0<=k<=N-1 "k is expected to be in [0, $(N-1)], but got $k"
 
     basisK = Vector{T}(undef, 0)
     basis = PXP_basis(T)
@@ -452,7 +461,8 @@ PXP_K_basis(N::Int, k::Int64) = PXP_K_basis(BitStr{N, Int}, k)
 function PXP_MSS_basis(::Type{T}, k::Int64,inv::Int64=1) where {N, T <: BitStr{N}}
 #params: a int of lattice number and momentum of system, we have considered the inversion symmetry
 #return: computational basis in given momentum inversion symmetry subspace with decimal int form
-
+    @assert k == 0 || k==div(N,2) "k is expected to be 0 or $(div(N,2)), but got $k"
+    @assert inv ==1 || inv==-1 "inv is expected to be 1 or -1, but got $(inv)"
     # MSS is the list of states in the maximum symmetry sector
     MSS = Vector{T}(undef, 0)
     basisK, basis_dic = PXP_K_basis(T, k)
@@ -460,7 +470,7 @@ function PXP_MSS_basis(::Type{T}, k::Int64,inv::Int64=1) where {N, T <: BitStr{N
 
     # q is the number of states that are equivalent under inversion
     qlist = Vector{Int}(undef, 0)
-    if inv==1
+    if inv==1 && k==0 || inv==-1 && k==div(N,2)
         for i in eachindex(basisK)
             n = basisK[i]
             # here we calculate the representative state of the inversion of n
@@ -473,28 +483,30 @@ function PXP_MSS_basis(::Type{T}, k::Int64,inv::Int64=1) where {N, T <: BitStr{N
         end
 
         return MSS, MSS_dic, qlist
-
-    else
+        
+    elseif inv==1 && k==div(N,2) || inv==-1 && k==0
         for i in eachindex(basisK)
-            n = basisK[i]
-            nR = get_representative(breflect(n))[1]
-            if n <= min(nR, n)
-                push!(MSS, n)
-                MSS_dic[n] = basis_dic[n]
-                push!(qlist, length(Set([n, nR])))
-            end
+                n = basisK[i]
+                nR = get_representative(breflect(n))[1]
+                if n <= min(nR, n)
+                    push!(MSS, n)
+                    MSS_dic[n] = basis_dic[n]
+                    push!(qlist, length(Set([n, nR])))
+                end
         end    
-        index=findall(x -> x==2, qlist)
-        new_MSS_dic = Dict(k => v for k in MSS[index] for v in [MSS_dic[k]])
-        return MSS[index], new_MSS_dic
+            index=findall(x -> x==2, qlist)
+            new_MSS_dic = Dict(k => v for k in MSS[index] for v in [MSS_dic[k]])
+            return MSS[index], new_MSS_dic, qlist
     end
-    
+          
 end
 PXP_MSS_basis(N::Int, k::Int64, inv::Int64=1) = PXP_MSS_basis(BitStr{N, Int}, k, inv)
 
 function PXP_K_Ham(::Type{T}, k::Int, Omega::Float64=1.0) where {N, T <: BitStr{N}}
 #params: a int of lattice number, momentum of system and interaction strength of system which default to be 1
 #return: the Hamiltonian matrix in given K space
+
+    @assert 0<=k<=N-1 "k is expected to be in [0, $(N-1)], but got $k"
 
     basisK, basis_dic = PXP_K_basis(T, k)
     l = length(basisK)
@@ -514,7 +526,9 @@ function PXP_K_Ham(::Type{T}, k::Int, Omega::Float64=1.0) where {N, T <: BitStr{
             end
         end
     end
-    H=real(H)
+    if k==0 || k==div(N,2)
+        H=real(H)
+    end
     H=(H+H')/2
     return H
 end
@@ -522,12 +536,14 @@ PXP_K_Ham(N::Int, k::Int, Omega::Float64=1.0) = PXP_K_Ham(BitStr{N, Int}, k, Ome
 
 function PXP_MSS_Ham(::Type{T}, k::Int, inv::Int64=1) where {N, T <: BitStr{N}}
 #params: a int of lattice number, momentum of system and interaction strength of system which default to be 1
-#return: the Hamiltonian matrix in given maximum symmetry space
-  
+#return: the Hamiltonian matrix in given maximum symmetry space 
+    @assert k == 0 || k==div(N,2) "k is expected to be 0 or $(div(N,2)), but got $k"
+    @assert inv ==1 || inv==-1 "inv is expected to be 1 or -1, but got $(inv)"
+
     omegak = exp(2im * π * k / N)
     
-    if inv==1
-        MSS, MSS_dic, qlist = PXP_MSS_basis(T, k)
+    if inv==1 && k==0 || inv==-1 && k==div(N,2)
+        MSS, MSS_dic, qlist = PXP_MSS_basis(T, k, inv)
 
         l = length(MSS)
         H = zeros(ComplexF64, (l, l))
@@ -548,8 +564,10 @@ function PXP_MSS_Ham(::Type{T}, k::Int, inv::Int64=1) where {N, T <: BitStr{N}}
         end
         H=real(H)
         H = (H + H') / 2
-    else
-        MSS, MSS_dic = PXP_MSS_basis(T, k, -1)
+
+        return H
+    elseif inv==1 && k==div(N,2) || inv==-1 && k==0
+        MSS, MSS_dic, _ = PXP_MSS_basis(T, k, inv)
 
         l = length(MSS)
         H = zeros(ComplexF64, (l, l))
@@ -568,9 +586,10 @@ function PXP_MSS_Ham(::Type{T}, k::Int, inv::Int64=1) where {N, T <: BitStr{N}}
         end
         H=real(H)
         H = (H + H') / 2  
+        
+        return H
     end
-
-    return H
+    
 end
 PXP_MSS_Ham(N::Int, k::Int, inv::Int64=1) = PXP_MSS_Ham(BitStr{N, Int}, k, inv) 
 

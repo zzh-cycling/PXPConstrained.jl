@@ -23,6 +23,7 @@ PXP_Ham_sparse(N::Int64, pbc::Bool=true) = PXP_Ham_sparse(BitStr{N, Int}, pbc)
 function PXP_K_Ham_sparse(::Type{T}, k::Int, Omega::Float64=1.0) where {N, T <: BitStr{N}}
 #params: a int of lattice number, momentum of system and interaction strength of system which default to be 1
 #return: the Hamiltonian matrix in given K space
+    @assert k in 0:N-1 "k can only be between from 0 to $(N-1)"
     basisK, basis_dic = PXP_K_basis(T, k)
     l = length(basisK)
     omegak = exp(2im * π * k / N)
@@ -58,10 +59,13 @@ function PXP_MSS_Ham_sparse(::Type{T}, k::Int, inv::Int64=1) where {N, T <: BitS
     #params: a int of lattice number, momentum of system and interaction strength of system which default to be 1, k is the momentum of system, only can take 0 or pi, inv is the inversion of the Hamiltonian, only 1 or -1.
     #return: the Hamiltonian matrix in given maximum symmetry space   
     # omegak = exp(2im * π * k / N)
+    @assert k == 0 || k==div(N,2) "k is expected to be 0 or $(div(N,2)), but got $k"
+    @assert inv ==1 || inv==-1 "inv is expected to be 1 or -1, but got $(inv)"
+
     omegak= k == 0 ? 1 : -1
     
-    if inv==1
-        MSS, MSS_dic, qlist = PXP_MSS_basis(T, k)
+    if inv==1 && k==0 || k==div(N,2) && inv==-1
+        MSS, MSS_dic, qlist = PXP_MSS_basis(T, k, inv)
 
         l = length(MSS)
         # H = spzeros(Float64, (l, l))
@@ -86,11 +90,10 @@ function PXP_MSS_Ham_sparse(::Type{T}, k::Int, inv::Int64=1) where {N, T <: BitS
     
         H = sparse(I, J, V, l, l)
         H = (H + H') / 2
-    else
-        MSS, MSS_dic = PXP_MSS_basis(T, k, -1)
+    elseif inv==1 && k==div(N,2) || inv==-1 && k==0
+        MSS, MSS_dic = PXP_MSS_basis(T, k, inv)
 
         l = length(MSS)
-        # H = spzeros(ComplexF64, (l, l))
         I, J, V = Int[], Int[], Float64[]
         for i in 1:l
             n = MSS[i]
@@ -113,10 +116,11 @@ function PXP_MSS_Ham_sparse(::Type{T}, k::Int, inv::Int64=1) where {N, T <: BitS
 
     return H
 end
-PXP_MSS_Ham_sparse(N::Int64, k::Int) = PXP_MSS_Ham_sparse(BitStr{N, Int}, k)
+PXP_MSS_Ham_sparse(N::Int64, k::Int, inv::Int64=1) = PXP_MSS_Ham_sparse(BitStr{N, Int}, k, inv)
 
 function iso_total2K_sparse(::Type{T}, k::Int64) where {N, T <: BitStr{N}}
 #Function to map the total basis to the K space basis, actually is the isometry, defined as W'*W=I, W*W'=P, P^2=P
+    @assert k in 0:N-1 "k can only be between from 0 to $(N-1)"
     basis = PXP_basis(T)
     k_dic = Dict{Int, Vector{Int64}}()
     basisK = Vector{T}(undef, 0)
@@ -169,6 +173,8 @@ iso_total2K_sparse(N::Int, k::Int64) = iso_total2K_sparse(BitStr{N, Int}, k)
 
 function iso_K2MSS_sparse(::Type{T}, k::Int64, inv::Int64=1) where {N, T <: BitStr{N}}
 #Function to map the MSS basis to the K space basis
+    @assert k == 0 || k==div(N,2) "k is expected to be 0 or $(div(N,2)), but got $k"
+    @assert inv ==1 || inv==-1 "inv is expected to be 1 or -1, but got $(inv)"
 
     basis = PXP_basis(T)
     basisK, k_dic = PXP_K_basis(T, k)
@@ -176,7 +182,7 @@ function iso_K2MSS_sparse(::Type{T}, k::Int64, inv::Int64=1) where {N, T <: BitS
     MSS_dic = Dict{Int, Vector{Int64}}()
     qlist = Vector{Int}(undef, 0)
     # Below procedure is to collapse the extra basis in K space that can be converted mutually to MSS space.
-    if inv==1
+    if inv==1 && k==0 || k==div(N,2) && inv==-1
         for i in eachindex(basisK)
             n = basisK[i]
             # here we calculate the representative state of the inversion of n
@@ -192,7 +198,7 @@ function iso_K2MSS_sparse(::Type{T}, k::Int64, inv::Int64=1) where {N, T <: BitS
             end
         end
 
-    else
+    elseif inv==1 && k==div(N,2) || inv==-1 && k==0
         for i in eachindex(basisK)
             n = basisK[i]
             nR = get_representative(breflect(n))[1]

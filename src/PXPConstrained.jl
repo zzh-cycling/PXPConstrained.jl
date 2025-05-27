@@ -14,7 +14,7 @@ export fitCCEntEntScal, fitpage_curve, fitLpluslnL, fit_both
 
 export PXP_Ham_sparse, PXP_K_Ham_sparse, PXP_MSS_Ham_sparse, iso_total2K_sparse, iso_total2MSS_sparse, iso_K2MSS_sparse
 
-export wf_time_evolution, wf_time_evolution_mss, rotated_psi_state, rotated_psi_state_mss
+export wf_time_evolution, wf_time_evolution_sparse, rotated_psi_state, rotated_psi_state_mss
 
 include("PXPFunctions.jl")
 include("Observables.jl")
