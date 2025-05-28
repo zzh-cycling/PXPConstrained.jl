@@ -401,13 +401,12 @@ function inversion_matrix(::Type{T}) where {N, T <: BitStr{N}}
 end
 inversion_matrix(N::Int) = inversion_matrix(BitStr{N, Int})
 
-function cyclebits(state::T, n_translations::Int) where {N, T <: BitStr{N}}
-#params: t is an integer, N is the length of the binary string
-#n_translations: number of positions to shift
-#return: the binary left shift
-#We also use this order: system size, state, number of translations
-
-    return (state << n_translations) % (2^N - 1)
+function cyclebits(state::T) where {N, T <: BitStr{N}}
+    #params: t is an integer, N is the length of the binary string
+    #We also use this order: system size, state, circular shift bitstring 1 bit.
+    # In case need to shift more than 1 bit, we can use a loop or recursion. or we leave a interface here  n_translations::Int
+    mask = 1 << N - 1
+    return ((state << 1) | (state >> (N - 1))) & mask
 end
 
 function get_representative(state::T) where {N, T <: BitStr{N}}
@@ -416,13 +415,16 @@ function get_representative(state::T) where {N, T <: BitStr{N}}
 
     representative = state
     translation = 0
-    for n_translation_sites in 0:N-1
-        new_state = cyclebits(state, n_translation_sites)
-        if new_state < representative
-            representative = new_state
+    # cycle(bits) = (bits << 1) % (2^N - 1)  # Left shift the state by one position
+    current = state
+    for n_translation_sites in 1:N-1
+        current = cyclebits(current)  # Cycle the bits
+        if current < representative
+            representative = current
             translation = n_translation_sites
         end
     end
+
     return representative, translation
 end
 
@@ -603,7 +605,7 @@ function translation_matrix(::Type{T}) where {N, T <: BitStr{N}}
     basis=PXP_basis(T)  
     Mat=zeros(Float64,(length(basis),length(basis)))
     for (i,n) in enumerate(basis)
-        m=cyclebits(n, 1)
+        m=cyclebits(n)
         j=searchsortedfirst(basis, m)
         Mat[i,j]=1.0
     end

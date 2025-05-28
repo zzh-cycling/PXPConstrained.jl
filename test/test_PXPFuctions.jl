@@ -2,6 +2,11 @@ using Test
 using PXPConstrained, BitBasis    
 using LinearAlgebra
 
+@testset "get_representative" begin
+    # In case overflow, bit"100000000001110011000000000011100100" > typemax(Int64)
+    PXPConstrained.get_representative(bit"100000000001110011000000000011100100") == (bit"000000000011100100100000000001110011", 18)
+end
+
 @testset "pxp ham" begin
     N=12
     state=BitStr{N}(0)
