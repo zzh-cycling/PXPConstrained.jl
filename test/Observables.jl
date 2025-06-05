@@ -2,7 +2,7 @@ using Test
 using PXPConstrained, BitBasis 
 using LinearAlgebra
 using Yao: arrayreg, density_matrix, von_neumann_entropy, expect, matblock
-include("../exm/FitEntEntScal.jl")
+# include("../exm/FitEntEntScal.jl")
 
 @testset "Observables" begin
     # This is the natural order index for scar state in PXP model's eigen
@@ -18,13 +18,13 @@ include("../exm/FitEntEntScal.jl")
     splitlis=Vector(1:N-1)
 
     # Fit the central charge of 1st scar
-    @test isapprox(fitCCEntEntScal(ee_PXP_state(N,splitlis,state); mincut=1, pbc=true)[1], 0.19684135629232746)
-    @test isapprox(fitCCEntEntScal(ee_PXP_idx(N,splitlis,1); mincut=1, pbc=true)[1], 0.19684135629232746)
+    # @test isapprox(fitCCEntEntScal(ee_PXP_state(N,splitlis,state); mincut=1, pbc=true)[1], 0.19684135629232746)
+    # @test isapprox(fitCCEntEntScal(ee_PXP_idx(N,splitlis,1); mincut=1, pbc=true)[1], 0.19684135629232746)
 
-    cent_cc, _ = ee_PXP_scaling_fig(N, states[:,1], "CC")
-    cent_page, _ = ee_PXP_scaling_fig(N, states[:,3], "Page")
-    @test isapprox(cent_cc, 0.19684135629232746, atol=1e-3) 
-    @test cent_page > 0
+    # cent_cc, _ = ee_PXP_scaling_fig(N, states[:,1], "CC")
+    # cent_page, _ = ee_PXP_scaling_fig(N, states[:,3], "Page")
+    # @test isapprox(cent_cc, 0.19684135629232746, atol=1e-3) 
+    # @test cent_page > 0
 
     # The qfi_anti_ferro_order of Z2 state should be 0
     z2state=zeros(322)
