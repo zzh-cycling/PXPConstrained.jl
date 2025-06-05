@@ -2,6 +2,7 @@ using Test
 using PXPConstrained, BitBasis 
 using LinearAlgebra
 using Yao: arrayreg, density_matrix, von_neumann_entropy, expect, matblock
+include("../exm/FitEntEntScal.jl")
 
 @testset "Observables" begin
     # This is the natural order index for scar state in PXP model's eigen
@@ -167,4 +168,13 @@ end
 
     @test Dwdlis[1] ≈ 1.0
     @test Dwdlis[end-9:end] ≈ [0.7851206872658141, 0.8309417480692536, 0.8649731584144107, 0.88533782942354, 0.8911456311707486, 0.882431049393456, 0.860052257130964, 0.82558164460555, 0.7812079308595815, 0.729654713140784]
+end
+
+# It means that translate N times is the same as identity, and inversion matrix squared is the identity
+@testset "translation and inversion matrix" begin
+    N = 12
+    T=translation_matrix(N)
+    @test isapprox(T^N, I(size(T)[1]), atol=1e-6)
+    Inv=inversion_matrix(N)
+    @test isapprox(Inv^2, I(size(Inv)[1]))
 end

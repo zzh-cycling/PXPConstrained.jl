@@ -3,6 +3,7 @@ using PXPConstrained, BitBasis
 using ITensors
 using Yao: arrayreg, density_matrix, von_neumann_entropy, expect, matblock
 ITensors.set_warn_order(60)
+include("../exm/FitEntEntScal.jl")
 
 function translation_operator(n::Int, N::Int)
     dim = 2^N  # 希尔伯特空间的维度

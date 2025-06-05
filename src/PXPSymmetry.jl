@@ -1,173 +1,3 @@
-#This PXP_basis package is used to generate the basis for PXP model, and also the Hamiltonian matrix for PXP model according to their basis.  
-#Totally we have three kinds of functions, basis, Ham, reduced_dm. We consider both PBC and OBC in the basis and Hamiltonian matrix, and we also consider the translational symmetry and inversion symmetry, and FSA subspace.
-
-
-function Fibonacci_chain_OBC(::Type{T}) where {N, T <: BitStr{N}}
-    # Generate Fibonacci chain for PXP model with open boundary condition
-    fib_chain=[[T(0), T(1)],[T(0), T(1), T(2)]]
-    for i in 3:N
-        push!(fib_chain,vcat([s << 1 for s in fib_chain[i-1]],[(s << 2 | T(1)) for s in fib_chain[i-2]]))
-    end
-    # each push we add a bit"0" or bit"01" to the end of the bit_string, and finally return the last element of the fib_chain
-    return fib_chain[N]
-end
-
-function Fibonacci_chain_PBC(::Type{T}) where {N, T <: BitStr{N}}
-    # Generate Fibonacci chain  for PXP model with periodic boundary condition
-    return filter(c -> iszero((c >> (N-1)) & (c & 1)), Fibonacci_chain_OBC(T))
-end
-
-function actingH_PXP(::Type{T}, state::T, pbc::Bool=true) where {N, T <: BitStr{N}}
-    # The type of n is DitStr{D, N, Int}, which is a binary string with length N in D-ary form.
-    # Acting Hamiltonian on a given state in bitstr and return the output states in bitstr
-    # Here need to note that the order of the bitstr is from right to left, which is different from the normal order.
-    mask=bmask(T, N, N-2)
-    fl=bmask(T, N-1)
-    # output = [flip(state, fl >> (i-1)) for i in 1:N-2 if state & (mask >> (i-1)) == 0] 
-    output = map(i -> flip(state, fl >> (i-1)), filter(i -> state & (mask >> (i-1)) == 0, 1:N-2)) # faster
-
-    if pbc
-        if state[2]==0 && state[N]==0
-            flip_str=flip(state,bmask(T, 1))
-            push!(output,flip_str)
-        end
-        if state[1]==0 && state[N-1]==0
-            flip_str=flip(state,bmask(T, N))
-            push!(output,flip_str)
-        end
-    else
-        if state[N-1]==0
-            flip_str=flip(state,bmask(T, N))
-            push!(output,flip_str)
-        end
-        if state[2]==0
-            flip_str=flip(state,bmask(T, 1))
-            push!(output,flip_str)
-        end
-    end
-    return output
-end
-
-function PXP_basis(::Type{T},pbc::Bool=true) where {N, T <: BitStr{N}}
-    # Generate basis for PXP model, return both decimal and binary form, where we both consider PBC and OBC
-    if pbc
-        basis=Fibonacci_chain_PBC(T)
-    else
-        basis=Fibonacci_chain_OBC(T)
-    end
-    sorted_basis=sort(basis)
-    return sorted_basis
-end
-PXP_basis(N::Int, pbc::Bool=true) = PXP_basis(BitStr{N, Int}, pbc)
-
-function PXP_Ham(::Type{T}, pbc::Bool=true) where {N, T <: BitStr{N}}
-    # Generate Hamiltonian for PXP model, automotically contain pbc or obc
-    basis=PXP_basis(T,pbc)
-
-    l=length(basis)
-    H=zeros(Float64,(l,l))
-    for i in 1:l
-        output=actingH_PXP(T, basis[i], pbc) 
-        for m in output 
-            j=searchsortedfirst(basis,m)
-            H[i, j] += 1
-        end
-    end
-
-    return H
-end
-PXP_Ham(N::Int, pbc::Bool=true) = PXP_Ham(BitStr{N, Int}, pbc)
-
-# join two lists of basis by make a product of two lists
-function process_join(a, b)
-    return vec([join(b, a) for a in a, b in b])
-end
-
-# create pxp basis composed of multiple disjoint sub-chains
-function joint_pxp_basis(lengthlis::Vector{Int})
-    return sort(mapreduce(len -> PXP_basis(len, false), process_join, lengthlis))
-end
-
-function connected_components(v::Vector{Int})
-    if isempty(v)
-        return []
-    end
-
-    sort!(v)
-
-    result = []
-    current_segment = [v[1]]
-
-    for i in 2:length(v)
-        if v[i] == v[i - 1] + 1
-            push!(current_segment, v[i])
-        else
-            push!(result, current_segment)
-            current_segment = [v[i]]
-        end
-    end
-
-    push!(result, current_segment)
-
-    return result
-end
-
-function move_subsystem(::Type{BitStr{M, INT}}, basis::BitStr{N, INT}, subsystems::Vector{Int}) where {M, N, INT}
-    @assert length(subsystems) == N "subsystems length is expected to be $N, but got $(length(subsystems))"
-    @assert M >= N "total length is expected to be greater than or equal to $N, but got $M"
-    return sum(i -> BitStr{M}(readbit(basis.buf, i) << (subsystems[i] - 1)), 1:N)
-end
-
-# take environment part of a basis
-takeenviron(x, mask::BitStr{l}) where {l} = x & (~mask)
-# take system part of a basis
-takesystem(x, mask::BitStr{l}) where {l} = (x & mask)
-
-function rdm_PXP(::Type{T}, subsystems::Vector{Int64}, state::Vector{ET}, pbc::Bool=true) where {N,T <: BitStr{N}, ET}
-    # Usually subsystem indices count from the right of binary string.
-    # The function is to take common environment parts of the total basis, get the index of system parts in reduced basis, and then calculate the reduced density matrix.
-    unsorted_basis = PXP_basis(T, pbc)
-    @assert length(unsorted_basis) == length(state) "state length is expected to be $(length(unsorted_basis)), but got $(length(state))"
-    
-    subsystems=connected_components(subsystems)
-    lengthlis=length.(subsystems)
-    subsystems=vcat(subsystems...)
-    mask = bmask(T, subsystems...)
-
-    
-    order = sortperm(unsorted_basis, by = x -> (takeenviron(x, mask), takesystem(x, mask))) #first sort by environment, then by system. The order of environment doesn't matter.
-    basis, state = unsorted_basis[order], state[order]
-    
-    reduced_basis = move_subsystem.(T, joint_pxp_basis(lengthlis), Ref(subsystems))
-    len = length(reduced_basis)
-    # Initialize the reduced density matrix
-    reduced_dm = zeros(ET, (len, len))
-
-    # Keep track of indices where the key changes
-    result_indices = Int[]
-    current_key = -1
-    for (idx, i) in enumerate(basis)
-        key = takeenviron(i, mask)  # Get environment l bits
-        if key != current_key
-            @assert key > current_key "key is expected to be greater than $current_key, but got $key"
-            push!(result_indices, idx)
-            current_key = key
-        end
-    end
-    # Add the final index to get complete ranges
-    push!(result_indices, length(basis) + 1)
-
-    for i in 1:length(result_indices)-1
-        range = result_indices[i]:result_indices[i+1]-1         
-        # Get indices in the reduced basis
-        indices = searchsortedfirst.(Ref(reduced_basis), takesystem.(basis[range], mask))
-        view(reduced_dm, indices, indices) .+= view(state, range) .* view(state, range)'
-    end
-
-    return reduced_dm
-end
-rdm_PXP(N::Int, subsystems::Vector{Int64}, state::Vector{ET}, pbc::Bool=true) where {ET} = rdm_PXP(BitStr{N, Int}, subsystems, state, pbc)
-
 function iso_total2K(::Type{T}, k::Int64) where {N, T <: BitStr{N}}
 #Function to map the total basis to the K space basis, actually is the isometry, defined as W'*W=I, W*W'=P, P^2=P
     @assert 0<=k<=N-1 "k is expected to be in [0, $(N-1)], but got $k"
@@ -381,33 +211,12 @@ end
 rdm_PXP_MSS(N::Int64, subsystems::Vector{Int64},state::Vector{ET}, k::Int64, inv::Int64=1) where {ET} = rdm_PXP_MSS(BitStr{N, Int}, subsystems, state, k, inv)
 
 
-function inversion_matrix(::Type{T}) where {N, T <: BitStr{N}}
-    basis=PXP_basis(T)
-    l=length(basis)
-    Imatrix=zeros((l,l))
-    # reversed_basis = map(breflect, basis) # The optimization try of using map function and broadcast
-    reversed_basis=similar(basis)
-    for i in eachindex(basis)
-        reversed_basis[i]=breflect(basis[i])
-    end
-    # Imatrix[CartesianIndex.(collect(1:length(basis)),searchsortedfirst.(Ref(basis), reversed_basis))].+=1.0
-    for i in eachindex(basis)
-        output=reversed_basis[i]
-        j=searchsortedfirst(basis,output)
-        Imatrix[i,j]+=1.0
-    end
-   
-    return Imatrix
-end
-inversion_matrix(N::Int) = inversion_matrix(BitStr{N, Int})
-
-function cyclebits(state::T, n_translations::Int) where {N, T <: BitStr{N}}
-#params: t is an integer, N is the length of the binary string
-#n_translations: number of positions to shift
-#return: the binary left shift
-#We also use this order: system size, state, number of translations
-
-    return (state << n_translations) % (2^N - 1)
+function cyclebits(state::T) where {N, T <: BitStr{N}}
+    #params: t is an integer, N is the length of the binary string
+    #We also use this order: system size, state, circular shift bitstring 1 bit.
+    # In case need to shift more than 1 bit, we can use a loop or recursion. or we leave a interface here  n_translations::Int
+    mask = 1 << N - 1
+    return ((state << 1) | (state >> (N - 1))) & mask
 end
 
 function get_representative(state::T) where {N, T <: BitStr{N}}
@@ -416,13 +225,16 @@ function get_representative(state::T) where {N, T <: BitStr{N}}
 
     representative = state
     translation = 0
-    for n_translation_sites in 0:N-1
-        new_state = cyclebits(state, n_translation_sites)
-        if new_state < representative
-            representative = new_state
+    # cycle(bits) = (bits << 1) % (2^N - 1)  # Left shift the state by one position
+    current = state
+    for n_translation_sites in 1:N-1
+        current = cyclebits(current)  # Cycle the bits
+        if current < representative
+            representative = current
             translation = n_translation_sites
         end
     end
+
     return representative, translation
 end
 
@@ -592,139 +404,3 @@ function PXP_MSS_Ham(::Type{T}, k::Int, inv::Int64=1) where {N, T <: BitStr{N}}
     
 end
 PXP_MSS_Ham(N::Int, k::Int, inv::Int64=1) = PXP_MSS_Ham(BitStr{N, Int}, k, inv) 
-
-function myprint(io::IO, xs...)
-    println(io, xs..., '\n')
-    flush(io)
-end
-
-
-function translation_matrix(::Type{T}) where {N, T <: BitStr{N}}
-    basis=PXP_basis(T)  
-    Mat=zeros(Float64,(length(basis),length(basis)))
-    for (i,n) in enumerate(basis)
-        m=cyclebits(n, 1)
-        j=searchsortedfirst(basis, m)
-        Mat[i,j]=1.0
-    end
-    
-    return Mat
-end
-translation_matrix(N::Int) = translation_matrix(BitStr{N, Int})
-
-function actingHplus_PXP(::Type{T}, rowstate::T) where {N, T <: BitStr{N}}
-    mask = bmask(T, N, N-2)
-    fl = bmask(T, N-1)
-
-
-    output = [
-    flip(rowstate, fl >> (j-1))
-    for j in 1:N-2
-    if isodd(j) && rowstate & (mask >> (j-1)) == 0 && rowstate[N-j] == 0 ||
-       iseven(j) && rowstate & (mask >> (j-1)) == 0 && rowstate[N-j] == 1
-]
-
-    if rowstate[2] == 0 && rowstate[N] == 0
-        if iseven(N) && rowstate[1] == 0
-            flip_str = flip(rowstate, bmask(T, 1))
-            push!(output, flip_str)
-        elseif isodd(N) && rowstate[1] == 1
-            flip_str = flip(rowstate, bmask(T, 1))
-            push!(output, flip_str)
-        end
-    end
-    if rowstate[1] == 0 && rowstate[N-1] == 0 && rowstate[N] == 1
-        flip_str = flip(rowstate, bmask(T, N))
-        push!(output, flip_str)
-    end
-    return output
-end
-
-
-function actingHminus_PXP(::Type{T}, rowstate::T) where {N, T <: BitStr{N}}
-    output = T[]
-    
-    mask = bmask(T, N, N-2)
-    fl = bmask(T, N-1)
-
-    for j in 1:N-2
-        if isodd(j)  # odd site, then apply σ⁻ operator
-            if rowstate & (mask >> (j-1)) ==0 && rowstate[N-j] == 1
-                flip_str = flip(rowstate, fl >> (j-1))
-                push!(output, flip_str)
-            end
-        else  # even site, then apply σ⁺ operator
-            if rowstate & (mask >> (j-1)) ==0 && rowstate[N-j] == 0
-                flip_str = flip(rowstate, fl >> (j-1))
-                push!(output, flip_str)
-            end
-        end
-    end
-    if rowstate[2] == 0 && rowstate[N] == 0
-        if iseven(N) && rowstate[1] == 1
-            flip_str = flip(rowstate, bmask(T, 1))
-            push!(output, flip_str)
-        elseif isodd(N) && rowstate[1] == 0
-            flip_str = flip(rowstate, bmask(T, 1))
-            push!(output, flip_str)
-        end
-    end
-    if rowstate[1] == 0 && rowstate[N-1] == 0 && rowstate[N] == 0
-        flip_str = flip(rowstate, bmask(T, N))
-        push!(output, flip_str)
-    end
-    return output
-end
-
-function iso_total2FSA(::Type{T}) where {N, T <: BitStr{N}}
-    # Once you have isometry, you can use it to map the total basis to the target basis. So you do not need to write the PXP_FSA_basis function.
-    basis= PXP_basis(T)
-    l = length(basis)
-    actingH_PXP_matr = zeros(Int64, (l, l))
-    for i in 1:l
-        output = actingHplus_PXP(T, basis[i])
-        for m in output
-            j = searchsortedfirst(basis, m)
-            actingH_PXP_matr[j, i] += 1
-        end
-    end
-
-    initial_state = bmask(T, 2:2:N)
-    final_state = initial_state >> 1
-
-    statelis = Matrix{Float64}(undef, l, N+1)
-    statelis[:, 1] .= 0; statelis[end, 1] = 1
-    statelis[:, end] .= 0; statelis[searchsortedfirst(basis, final_state), end] = 1
-
-    for i in 2:N
-        state = actingH_PXP_matr * statelis[:, i-1]
-        state /= norm(state)
-        statelis[:, i] = state
-    end
-    return statelis
-end
-iso_total2FSA(N::Int) = iso_total2FSA(BitStr{N, Int})
-
-function PXP_FSA_Ham(::Type{T}) where {N, T <: BitStr{N}}
-#This function is based on Forward Scattering Approximation, utilizes the function PXP_FSA_basis to build the basis, 
-#and project the PXP Hamiltonian to its FSA subspace. It has an input parameter N, the system size, and outputs the FSA matrix.
-# Arguments
-#N::Int: The system size.
-#Returns
-#`Matrix{Float64}`: The FSA Hamiltonian matrix.
-# Examples
-
-    Ham = PXP_Ham(T, true)
-    file_path = "a/Users/cycling/Documents/projects/big_data/scar_thermal_FSA/iso_FSA/iso_total2FSA$(N).jld"
-
-    if isfile(file_path)
-        iso = load(file_path, "iso")
-    else
-        iso = iso_total2FSA(T)
-    end
-    
-    H = iso' * Ham * iso
-    return H
-end
-PXP_FSA_Ham(n::Int) = PXP_FSA_Ham(BitStr{n, Int})
-# Such behavior is allowed, it is not a performance bottleneck(additional cost is deserved).

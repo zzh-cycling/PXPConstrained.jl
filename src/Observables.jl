@@ -37,24 +37,6 @@ function ee_PXP_state(N::Int64,splitlis::Vector{Int64},state::Vector{ET}) where 
     return EE_lis
 end
 
-function ee_PXP_scaling_fig(N::Int64, state::Vector{ET},fit::String) where {ET}
-    splitlis=Vector(1:N-1)
-    EElis=ee_PXP_state(N, splitlis, state)
-
-    if fit=="CC" 
-        cent, fig=fitCCEntEntScal(EElis; mincut=1, pbc=true)
-    end
-
-    if fit=="Page"
-        cent, fig=fitpage_curve(EElis; mincut=1)
-    end
-
-    if fit=="L+lnL"
-        cent, fig=fitLpluslnL(EElis; mincut=1)
-    end
-    return cent, fig
-end
-
 function mutual_information(N::Int64, subsystems::Tuple{Vector{Int64}, Vector{Int64}}, state::Vector{ET}) where {ET}
     A, B = subsystems
     # MI formula defined as: I(A:B) = S_A + S_B - S_AB
@@ -245,3 +227,36 @@ function ergotropy_PXP_MSS_state(L::Int, l::Int, state::Vector{T}, k::Int=0) whe
     
     return GS_energy, subenergy[1], passive_energy
 end
+
+function inversion_matrix(::Type{T}) where {N, T <: BitStr{N}}
+    basis=PXP_basis(T)
+    l=length(basis)
+    Imatrix=zeros((l,l))
+    # reversed_basis = map(breflect, basis) # The optimization try of using map function and broadcast
+    reversed_basis=similar(basis)
+    for i in eachindex(basis)
+        reversed_basis[i]=breflect(basis[i])
+    end
+    # Imatrix[CartesianIndex.(collect(1:length(basis)),searchsortedfirst.(Ref(basis), reversed_basis))].+=1.0
+    for i in eachindex(basis)
+        output=reversed_basis[i]
+        j=searchsortedfirst(basis,output)
+        Imatrix[i,j]+=1.0
+    end
+   
+    return Imatrix
+end
+inversion_matrix(N::Int) = inversion_matrix(BitStr{N, Int})
+
+function translation_matrix(::Type{T}) where {N, T <: BitStr{N}}
+    basis=PXP_basis(T)  
+    Mat=zeros(Float64,(length(basis),length(basis)))
+    for (i,n) in enumerate(basis)
+        m=cyclebits(n)
+        j=searchsortedfirst(basis, m)
+        Mat[i,j]=1.0
+    end
+    
+    return Mat
+end
+translation_matrix(N::Int) = translation_matrix(BitStr{N, Int})

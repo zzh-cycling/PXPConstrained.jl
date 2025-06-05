@@ -1,3 +1,120 @@
+function actingHplus_PXP(::Type{T}, rowstate::T) where {N, T <: BitStr{N}}
+    mask = bmask(T, N, N-2)
+    fl = bmask(T, N-1)
+
+
+    output = [
+    flip(rowstate, fl >> (j-1))
+    for j in 1:N-2
+    if isodd(j) && rowstate & (mask >> (j-1)) == 0 && rowstate[N-j] == 0 ||
+       iseven(j) && rowstate & (mask >> (j-1)) == 0 && rowstate[N-j] == 1
+]
+
+    if rowstate[2] == 0 && rowstate[N] == 0
+        if iseven(N) && rowstate[1] == 0
+            flip_str = flip(rowstate, bmask(T, 1))
+            push!(output, flip_str)
+        elseif isodd(N) && rowstate[1] == 1
+            flip_str = flip(rowstate, bmask(T, 1))
+            push!(output, flip_str)
+        end
+    end
+    if rowstate[1] == 0 && rowstate[N-1] == 0 && rowstate[N] == 1
+        flip_str = flip(rowstate, bmask(T, N))
+        push!(output, flip_str)
+    end
+    return output
+end
+
+
+function actingHminus_PXP(::Type{T}, rowstate::T) where {N, T <: BitStr{N}}
+    output = T[]
+    
+    mask = bmask(T, N, N-2)
+    fl = bmask(T, N-1)
+
+    for j in 1:N-2
+        if isodd(j)  # odd site, then apply σ⁻ operator
+            if rowstate & (mask >> (j-1)) ==0 && rowstate[N-j] == 1
+                flip_str = flip(rowstate, fl >> (j-1))
+                push!(output, flip_str)
+            end
+        else  # even site, then apply σ⁺ operator
+            if rowstate & (mask >> (j-1)) ==0 && rowstate[N-j] == 0
+                flip_str = flip(rowstate, fl >> (j-1))
+                push!(output, flip_str)
+            end
+        end
+    end
+    if rowstate[2] == 0 && rowstate[N] == 0
+        if iseven(N) && rowstate[1] == 1
+            flip_str = flip(rowstate, bmask(T, 1))
+            push!(output, flip_str)
+        elseif isodd(N) && rowstate[1] == 0
+            flip_str = flip(rowstate, bmask(T, 1))
+            push!(output, flip_str)
+        end
+    end
+    if rowstate[1] == 0 && rowstate[N-1] == 0 && rowstate[N] == 0
+        flip_str = flip(rowstate, bmask(T, N))
+        push!(output, flip_str)
+    end
+    return output
+end
+
+function iso_total2FSA(::Type{T}) where {N, T <: BitStr{N}}
+    # Once you have isometry, you can use it to map the total basis to the target basis. So you do not need to write the PXP_FSA_basis function.
+    basis= PXP_basis(T)
+    l = length(basis)
+    actingH_PXP_matr = zeros(Int64, (l, l))
+    for i in 1:l
+        output = actingHplus_PXP(T, basis[i])
+        for m in output
+            j = searchsortedfirst(basis, m)
+            actingH_PXP_matr[j, i] += 1
+        end
+    end
+
+    initial_state = bmask(T, 2:2:N)
+    final_state = initial_state >> 1
+
+    statelis = Matrix{Float64}(undef, l, N+1)
+    statelis[:, 1] .= 0; statelis[end, 1] = 1
+    statelis[:, end] .= 0; statelis[searchsortedfirst(basis, final_state), end] = 1
+
+    for i in 2:N
+        state = actingH_PXP_matr * statelis[:, i-1]
+        state /= norm(state)
+        statelis[:, i] = state
+    end
+    return statelis
+end
+iso_total2FSA(N::Int) = iso_total2FSA(BitStr{N, Int})
+
+function PXP_FSA_Ham(::Type{T}) where {N, T <: BitStr{N}}
+#This function is based on Forward Scattering Approximation, utilizes the function PXP_FSA_basis to build the basis, 
+#and project the PXP Hamiltonian to its FSA subspace. It has an input parameter N, the system size, and outputs the FSA matrix.
+# Arguments
+#N::Int: The system size.
+#Returns
+#`Matrix{Float64}`: The FSA Hamiltonian matrix.
+# Examples
+
+    Ham = PXP_Ham(T, true)
+    file_path = "a/Users/cycling/Documents/projects/big_data/scar_thermal_FSA/iso_FSA/iso_total2FSA$(N).jld"
+
+    if isfile(file_path)
+        iso = load(file_path, "iso")
+    else
+        iso = iso_total2FSA(T)
+    end
+    
+    H = iso' * Ham * iso
+    return H
+end
+PXP_FSA_Ham(n::Int) = PXP_FSA_Ham(BitStr{n, Int})
+# Such behavior is allowed, it is not a performance bottleneck(additional cost is deserved).
+
 function proj_FSA(::Type{T}) where {N, T <: BitStr{N}}
 #Generate the projection matrix for the FSA subspace, which should equals to identity matrix in FSA subspace.
 #Meanwhile not equal to identity matrix in the total Hilbert space. Input N is the size of the system, return the projection matrix.

@@ -2,6 +2,16 @@ using Test
 using PXPConstrained
 using LinearAlgebra
 
+@testset "FSA" begin
+    N = 12
+    # map from total basis to FSA basis, isometry which should satisfy u'*u=I, belike:
+    u = iso_total2FSA(N)
+    @test size(u) == (322, 13)
+    @test u'*u ≈ I(13)
+    P = u*u'
+    @test isapprox(P*P, P, atol=1e-10)
+end
+
 @testset "ishermitian" begin
     for L in 6:14
         @test ishermitian(PXP_Ham_sparse(L))
