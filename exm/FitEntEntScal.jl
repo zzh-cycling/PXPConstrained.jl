@@ -1,3 +1,5 @@
+using LaTeXStrings, Printf, LsqFit, Measurements, Plots
+ 
 function fitCCEntEntScal(
     SvN_list::Vector{Float64};
     err::Vector{Float64}=0.0SvN_list,
@@ -248,4 +250,22 @@ function fit_both(
         # end
 
     return cent, cent2, fig
+end
+
+function ee_PXP_scaling_fig(N::Int64, state::Vector{ET},fit::String) where {ET}
+    splitlis=Vector(1:N-1)
+    EElis=ee_PXP_state(N, splitlis, state)
+
+    if fit=="CC" 
+        cent, fig=fitCCEntEntScal(EElis; mincut=1, pbc=true)
+    end
+
+    if fit=="Page"
+        cent, fig=fitpage_curve(EElis; mincut=1)
+    end
+
+    if fit=="L+lnL"
+        cent, fig=fitLpluslnL(EElis; mincut=1)
+    end
+    return cent, fig
 end

@@ -3,22 +3,23 @@ using PXPConstrained, BitBasis
 using ITensors
 using LinearAlgebra
 
-@testset "pxp functions" begin
-    include("./test_PXPFuctions.jl")
+@testset "pxp basis" begin
+    include("./PXPBasis.jl")
+    include("./PXPSymmetry.jl")
 end
 
 @testset "scar separate" begin
-    include("./test_ScarSeparate.jl")
+    include("./ScarSeparate.jl")
 end
 
 @testset "Observables" begin
-    include("./test_Observables.jl")
+    include("./Observables.jl")
 end
 
 @testset "PXP_MSS_Ham_sparse" begin
-    include("./test_PXPSparse.jl")
+    include("./PXPSparse.jl")
 end
 
 @testset "Dynamics" begin
-    include("./test_Dynamics.jl")
+    include("./Dynamics.jl")
 end 
