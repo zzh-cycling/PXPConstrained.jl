@@ -113,9 +113,10 @@ function connected_components(v::Vector{Int})
 end
 
 function move_subsystem(::Type{BitStr{M, INT}}, basis::BitStr{N, INT}, subsystems::Vector{Int}) where {M, N, INT}
+    # Move the subsystem bits to the left of the basis, and return a new basis with the subsystem bits moved to the left, and move into the bigger basis.
     @assert length(subsystems) == N "subsystems length is expected to be $N, but got $(length(subsystems))"
     @assert M >= N "total length is expected to be greater than or equal to $N, but got $M"
-    return sum(i -> BitStr{M}(readbit(basis.buf, i) << (subsystems[i] - 1)), 1:N)
+    return sum(i -> BitStr{M}(readbit(basis.buf, i) << (M - subsystems[N-i+1])), 1:N)
 end
 
 # take environment part of a basis
@@ -124,7 +125,7 @@ takeenviron(x, mask::BitStr{l}) where {l} = x & (~mask)
 takesystem(x, mask::BitStr{l}) where {l} = (x & mask)
 
 function rdm_PXP(::Type{T}, subsystems::Vector{Int64}, state::Vector{ET}, pbc::Bool=true) where {N,T <: BitStr{N}, ET}
-    # Usually subsystem indices count from the right of binary string.
+    # Usually subsystem indices count from the right of binary string. But this version we can count from the left, which is consistent with our intuition. This means that the systems we want to keep.
     # The function is to take common environment parts of the total basis, get the index of system parts in reduced basis, and then calculate the reduced density matrix.
     unsorted_basis = PXP_basis(T, pbc)
     @assert length(unsorted_basis) == length(state) "state length is expected to be $(length(unsorted_basis)), but got $(length(state))"
@@ -132,7 +133,7 @@ function rdm_PXP(::Type{T}, subsystems::Vector{Int64}, state::Vector{ET}, pbc::B
     subsystems=connected_components(subsystems)
     lengthlis=length.(subsystems)
     subsystems=vcat(subsystems...)
-    mask = bmask(T, subsystems...)
+    mask = bmask(T, (N .-subsystems .+1)...)
 
     
     order = sortperm(unsorted_basis, by = x -> (takeenviron(x, mask), takesystem(x, mask))) #first sort by environment, then by system. The order of environment doesn't matter.

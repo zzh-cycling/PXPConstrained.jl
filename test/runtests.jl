@@ -2,7 +2,6 @@ using Test
 using PXPConstrained, BitBasis
 using ITensors
 using LinearAlgebra
-
 @testset "pxp basis" begin
     include("./PXPBasis.jl")
     include("./PXPSymmetry.jl")
