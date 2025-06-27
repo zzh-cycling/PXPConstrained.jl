@@ -28,10 +28,14 @@ function ee_PXP_idx(N::Int64, splitlis::Vector{Int64}, idx::Int64)
     return EE_lis
 end
 
-function ee_PXP_state(N::Int64,splitlis::Vector{Int64},state::Vector{ET}) where {ET}
+function ee_PXP_state(N::Int64,splitlis::Vector{Int64},state::Vector{ET}, MSS::Bool=false) where {ET}
     EE_lis=zeros(length(splitlis))
     for m in eachindex(EE_lis)
-        subrho=rdm_PXP(N, collect(1:splitlis[m]), state)
+        if MSS
+            subrho = rdm_PXP_MSS(N, collect(1:splitlis[m]), state, 0)
+        else
+            subrho = rdm_PXP(N, collect(1:splitlis[m]), state)
+        end
         EE_lis[m]=ee(subrho)
     end
     return EE_lis
