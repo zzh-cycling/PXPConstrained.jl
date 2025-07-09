@@ -101,11 +101,11 @@ function iso_K2MSS(::Type{T}, k::Int64, inv::Int64=1) where {N, T <: BitStr{N}}
                 push!(qlist, length(Set([n, nR])))
             end
             n = min(nR, n)
-            if haskey(MSS_dic, n)
-                push!(MSS_dic[n], i)
-            else
-                MSS_dic[n] = [i]
-            end
+                if haskey(MSS_dic, n)
+                    push!(MSS_dic[n], i)
+                else
+                    MSS_dic[n] = [i]
+                end
         end
 
     else
@@ -120,11 +120,8 @@ function iso_K2MSS(::Type{T}, k::Int64, inv::Int64=1) where {N, T <: BitStr{N}}
                     MSS_dic[n] = [i]
                 end
                 push!(qlist, 2)
-            end
-            
+            end     
         end    
-        
-    
     end
 
     iso = zeros((length(basisK), length(MSS_dic)))
@@ -146,11 +143,10 @@ function mapstate_MSS2K(::Type{T}, state::Vector{ET}, k::Int64, inv::Int64=1) wh
     MSS_dic = Dict{Int, Vector{Int64}}()
     qlist = Vector{Int}(undef, 0)
    
-    if inv==1
+    if inv==1 && k==0 || inv==-1 && k==div(N,2)
         for i in eachindex(basisK)
             n = basisK[i]
             nR = get_representative(breflect(n))[1]
-            # For example, n = 41, nR=37, then we only need to keep n=37, and n=41 will be removed.
             if n <= min(nR, n)
                 push!(qlist, length(Set([n, nR])))
             end
@@ -175,11 +171,9 @@ function mapstate_MSS2K(::Type{T}, state::Vector{ET}, k::Int64, inv::Int64=1) wh
                 end
                 push!(qlist, 2)
             end
-            
         end    
-        
-    
     end
+
 
     total_state = zeros(ET, length(basisK))
     MSS_dic=sort(MSS_dic)
@@ -191,8 +185,7 @@ function mapstate_MSS2K(::Type{T}, state::Vector{ET}, k::Int64, inv::Int64=1) wh
 end
 mapstate_MSS2K(N::Int, state::Vector{ET}, k::Int64, inv::Int64=1) where {ET} = mapstate_MSS2K(BitStr{N, Int}, state, k, inv)
 
-mapstate_MSS2total(::Type{T}, state::Vector{ET}, k::Int64, inv::Int64=1) where {N, T <: BitStr{N}, ET} = mapstate_K2total(T, mapstate_MSS2K(T, state, k, inv), k)
-mapstate_MSS2total(N::Int64, state::Vector{ET}, k::Int64, inv::Int64=1) where {ET} = mapstate_MSS2total(BitStr{N, Int}, state, k, inv)
+mapstate_MSS2total(N::Int64, state::Vector{ET}, k::Int64, inv::Int64=1) where {ET} = mapstate_K2total(N, mapstate_MSS2K(N, state, k, inv), k)
 
 function iso_total2MSS(::Type{T}, k::Int64, inv::Int64=1) where {N, T <: BitStr{N}}
     # Function to map the total basis to the MSS space basis, k can only equal to 0 or N/2(pi)
@@ -204,7 +197,7 @@ iso_total2MSS(N::Int, k::Int64, inv::Int64=1) = iso_total2MSS(BitStr{N, Int}, k,
 
 function rdm_PXP_MSS(::Type{T}, subsystems::Vector{Int64}, mssstate::Vector{ET}, k::Int64, inv::Int64=1) where {N,T <: BitStr{N}, ET}
     @assert length(PXP_MSS_basis(T, k, inv)[1]) == length(mssstate) "state length is expected to be $(length(PXP_MSS_basis(T, k, inv)[1])), but got $(length(mssstate))"
-    state=mapstate_MSS2total(T, mssstate, k, inv)
+    state=mapstate_MSS2total(N, mssstate, k, inv)
     reduced_dm = rdm_PXP(T, subsystems, state)
     return reduced_dm
 end

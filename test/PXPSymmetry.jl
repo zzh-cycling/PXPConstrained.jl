@@ -376,3 +376,29 @@ end
     @test K37[8] ≈ 1/√2
     @test K37[9] ≈ 1/√2
 end
+
+@testset "rdm_PXP_MSS, ergotropy_PXP_MSS_state" begin
+    N = 10
+    rotated_state1 = rotated_psi_state_mss(N, 0, π/4)
+    rotated_state2 = rotated_psi_state_mss(N, div(N, 2), π/4, -1)
+    rotated_state3 = rotated_psi_state_mss(N, div(N, 2), π/4)
+    rotated_state4 = rotated_psi_state_mss(N, 0, π/4, -1)
+
+    @test length(rotated_state3) == 1
+    @test length(rotated_state4) == 1
+    @test length(rotated_state1) == 14
+    @test length(rotated_state2) == 11
+
+    rdm1 = rdm_PXP_MSS(N, collect(1:div(N,2)), rotated_state1, 0)
+    @test size(rdm1) == (13, 13)
+    @test ishermitian(rdm1)
+    @test tr(rdm1) ≈ 1.0
+
+    rdm2 = rdm_PXP_MSS(N, collect(1:div(N,2)), rotated_state2, div(N,2), -1)
+    @test size(rdm2) == (13, 13)
+    @test ishermitian(rdm2)
+    @test tr(rdm2) ≈ 1.0
+
+    [-1.7083168055004627, -3.317496872634849, -2.68645531695468] .= ergotropy_PXP_MSS_state(N, div(N,2), rotated_state1, 0)
+    [-1.7108050847457632, -3.317496872634849, -2.6924091458780577] .= ergotropy_PXP_MSS_state(N, div(N,2), rotated_state2, div(N,2), -1)
+end
