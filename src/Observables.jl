@@ -218,11 +218,11 @@ function ergotropy_PXP_state(N::Int64, l::Int64,  state::Vector{ET}, pbc::Bool=t
     return GS_energy, subenergy[1], passive_energy
 end
 
-function ergotropy_PXP_MSS_state(L::Int, l::Int, state::Vector{T}, k::Int=0) where T
+function ergotropy_PXP_MSS_state(L::Int, l::Int, state::Vector{T}, k::Int=0, inv::Int64=1) where T
     HA = PXP_Ham(l, false)
     subenergy, substates = eigen(HA)
     
-    subrho = rdm_PXP_MSS(L, collect(1:l), state, k)
+    subrho = rdm_PXP_MSS(L, collect(1:l), state, k, inv)
     
     GS_energy = tr(subrho * HA)
     spectrum = eigvals(subrho)
