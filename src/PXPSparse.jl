@@ -1,3 +1,33 @@
+"""
+    PXPSparse.jl
+
+Sparse matrix implementations for the PXP model Hamiltonians.
+This module provides memory-efficient sparse representations of PXP Hamiltonians
+in various symmetry sectors, enabling simulations of larger system sizes.
+"""
+
+"""
+    PXP_Ham_sparse(::Type{T}, pbc::Bool=true) where {N, T <: BitStr{N}}
+    PXP_Ham_sparse(N::Int64, pbc::Bool=true)
+
+Construct sparse matrix representation of the PXP Hamiltonian.
+
+Creates a memory-efficient sparse matrix version of the PXP Hamiltonian,
+suitable for large system sizes where dense matrices become impractical.
+
+# Arguments
+- `T::Type{BitStr{N}}` or `N::Int64`: System size specification
+- `pbc::Bool=true`: Whether to use periodic boundary conditions
+
+# Returns
+- `SparseMatrixCSC{Float64}`: Sparse PXP Hamiltonian matrix
+
+# Example
+```julia
+H_sparse = PXP_Ham_sparse(16, true)  # 16-site sparse PXP Hamiltonian
+eigenvals = eigvals(H_sparse)  # Compute eigenvalues efficiently
+```
+"""
 function PXP_Ham_sparse(::Type{T}, pbc::Bool=true) where {N, T <: BitStr{N}}
     # Generate Hamiltonian for PXP model, automotically contain pbc or obc
     basis=PXP_basis(T,pbc)
@@ -20,6 +50,29 @@ function PXP_Ham_sparse(::Type{T}, pbc::Bool=true) where {N, T <: BitStr{N}}
 end
 PXP_Ham_sparse(N::Int64, pbc::Bool=true) = PXP_Ham_sparse(BitStr{N, Int}, pbc)
 
+"""
+    PXP_K_Ham_sparse(::Type{T}, k::Int, Omega::Float64=1.0) where {N, T <: BitStr{N}}
+    PXP_K_Ham_sparse(N::Int64, k::Int)
+
+Construct sparse Hamiltonian in momentum K subspace.
+
+Creates a sparse matrix representation of the PXP Hamiltonian projected
+onto the translational eigenspace with momentum quantum number k.
+
+# Arguments
+- `T::Type{BitStr{N}}` or `N::Int64`: System size specification
+- `k::Int`: Momentum quantum number (0 ≤ k ≤ N-1)
+- `Omega::Float64=1.0`: Overall energy scale
+
+# Returns
+- `SparseMatrixCSC`: Sparse Hamiltonian in K subspace (real for k=0,π)
+
+# Example
+```julia
+H_k0 = PXP_K_Ham_sparse(12, 0)  # Zero-momentum subspace
+eigenvals = eigvals(H_k0)
+```
+"""
 function PXP_K_Ham_sparse(::Type{T}, k::Int, Omega::Float64=1.0) where {N, T <: BitStr{N}}
 #params: a int of lattice number, momentum of system and interaction strength of system which default to be 1
 #return: the Hamiltonian matrix in given K space
@@ -55,6 +108,28 @@ function PXP_K_Ham_sparse(::Type{T}, k::Int, Omega::Float64=1.0) where {N, T <: 
 end
 PXP_K_Ham_sparse(N::Int64, k::Int) = PXP_K_Ham_sparse(BitStr{N, Int}, k)
 
+"""
+    PXP_MSS_Ham_sparse(::Type{T}, k::Int, inv::Int64=1) where {N, T <: BitStr{N}}
+
+Construct sparse Hamiltonian in maximum symmetry subspace (MSS).
+
+Creates a sparse matrix representation in the subspace that respects both
+translational and inversion symmetries. Only available for k=0 or k=π.
+
+# Arguments
+- `T::Type{BitStr{N}}`: System size specification  
+- `k::Int`: Momentum quantum number (must be 0 or N/2)
+- `inv::Int64=1`: Inversion eigenvalue (±1)
+
+# Returns
+- `SparseMatrixCSC{Float64}`: Sparse Hamiltonian in MSS
+
+# Example
+```julia
+H_mss = PXP_MSS_Ham_sparse(BitStr{12, Int}, 0, 1)  # k=0, even inversion
+eigenvals, eigenvecs = eigen(H_mss)
+```
+"""
 function PXP_MSS_Ham_sparse(::Type{T}, k::Int, inv::Int64=1) where {N, T <: BitStr{N}}
     #params: a int of lattice number, momentum of system and interaction strength of system which default to be 1, k is the momentum of system, only can take 0 or pi, inv is the inversion of the Hamiltonian, only 1 or -1.
     #return: the Hamiltonian matrix in given maximum symmetry space   
