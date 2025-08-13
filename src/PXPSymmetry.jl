@@ -1,3 +1,34 @@
+"""
+    PXPSymmetry.jl
+
+Functions for implementing translational and inversion symmetries in the PXP model.
+This module provides tools for constructing momentum (K) and maximum symmetry subspace (MSS)
+representations, along with the corresponding isometries and basis transformations.
+"""
+
+"""
+    iso_total2K(::Type{T}, k::Int64) where {N, T <: BitStr{N}}
+    iso_total2K(N::Int, k::Int64)
+
+Construct the isometry mapping from total basis to momentum K subspace.
+
+Creates the transformation matrix W such that W'*W=I and W*W'=P where P is the
+projector onto the K-momentum subspace. This implements translational symmetry.
+
+# Arguments
+- `T::Type{BitStr{N}}` or `N::Int`: System size specification
+- `k::Int64`: Momentum quantum number (0 ≤ k ≤ N-1)
+
+# Returns
+- `Matrix{Float64}`: Isometry matrix mapping total space to K subspace
+
+# Example
+```julia
+total_ham = PXP_Ham(BitStr{10, Int})  # Total Hamiltonian for N=10
+W = iso_total2K(10, 0)  # Map to zero-momentum subspace
+K_ham = W' * total_ham * W  # Project Hamiltonian to K subspace
+```
+"""
 function iso_total2K(::Type{T}, k::Int64) where {N, T <: BitStr{N}}
 #Function to map the total basis to the K space basis, actually is the isometry, defined as W'*W=I, W*W'=P, P^2=P
     @assert 0<=k<=N-1 "k is expected to be in [0, $(N-1)], but got $k"
@@ -36,6 +67,30 @@ function iso_total2K(::Type{T}, k::Int64) where {N, T <: BitStr{N}}
 end
 iso_total2K(N::Int, k::Int64) = iso_total2K(BitStr{N, Int}, k)
 
+"""
+    mapstate_K2total(::Type{T}, state::Vector{ET}, k::Int64) where {N, T <: BitStr{N}, ET}
+    mapstate_K2total(N::Int, state::Vector{ET}, k::Int64) where {ET}
+
+Map a state from momentum K subspace to the total space.
+
+Transforms a quantum state from the momentum-selected subspace back to the
+full Hilbert space using translational symmetry.
+
+# Arguments
+- `T::Type{BitStr{N}}` or `N::Int`: System size specification
+- `state::Vector{ET}`: State vector in K subspace
+- `k::Int64`: Momentum quantum number (0 ≤ k ≤ N-1)
+
+# Returns
+- `Vector{ET}`: State vector in total space
+
+# Example
+```julia
+k_state = zeros(length(PXP_K_basis(10,0)[1]))  # Some state in K=0 subspace
+k_state[1] = 1.0  # Set first component to 1
+total_state = mapstate_K2total(10, k_state, 0)
+```
+"""
 function mapstate_K2total(::Type{T}, state::Vector{ET}, k::Int64) where {N, T <: BitStr{N}, ET}
     # Map the K space state to total space state
     @assert 0<=k<=N-1 "k is expected to be in [0, $(N-1)], but got $k"
@@ -72,6 +127,29 @@ function mapstate_K2total(::Type{T}, state::Vector{ET}, k::Int64) where {N, T <:
 end
 mapstate_K2total(N::Int, state::Vector{ET}, k::Int64) where {ET} = mapstate_K2total(BitStr{N, Int}, state, k)
 
+"""
+    rdm_PXP_K(::Type{T}, subsystems::Vector{Int64}, kstate::Vector{ET}, k::Int64) where {N,T <: BitStr{N}, ET}
+    rdm_PXP_K(N::Int, subsystems::Vector{Int64}, state::Vector{ET}, k::Int64) where {ET}
+
+Compute reduced density matrix for a state in momentum K subspace.
+
+Transforms the state from K subspace to total space and then computes
+the reduced density matrix for the specified subsystem.
+
+# Arguments
+- `T::Type{BitStr{N}}` or `N::Int`: System size specification
+- `subsystems::Vector{Int64}`: Subsystem sites indices
+- `kstate::Vector{ET}`: State vector in K subspace
+- `k::Int64`: Momentum quantum number
+
+# Returns
+- `Matrix{ET}`: Reduced density matrix of the subsystem
+
+# Example
+```julia
+rdm = rdm_PXP_K(10, [1,2,3], k_state, 0)
+```
+"""
 function rdm_PXP_K(::Type{T}, subsystems::Vector{Int64},kstate::Vector{ET}, k::Int64) where {N,T <: BitStr{N}, ET}
     @assert length(kstate) == length(PXP_K_basis(T,k)[1]) "state length is expected to be $(length(PXP_K_basis(T, k)[1])), but got $(length(kstate))"
     state = mapstate_K2total(T, kstate, k)
@@ -81,6 +159,29 @@ end
 rdm_PXP_K(N::Int, subsystems::Vector{Int64},state::Vector{ET}, k::Int64) where {ET} = rdm_PXP_K(BitStr{N, Int}, subsystems, state, k)
 
 
+"""
+    iso_K2MSS(::Type{T}, k::Int64, inv::Int64=1) where {N, T <: BitStr{N}}
+    iso_K2MSS(N::Int, k::Int64, inv::Int64=1)
+
+Construct isometry from momentum K subspace to maximum symmetry subspace (MSS).
+
+Maps from the momentum subspace to the subspace that respects both translational
+and inversion symmetries. Only works for k=0 or k=π (N/2).
+
+# Arguments
+- `T::Type{BitStr{N}}` or `N::Int`: System size specification
+- `k::Int64`: Momentum quantum number (must be 0 or N/2)
+- `inv::Int64=1`: Inversion eigenvalue (±1)
+
+# Returns
+- `Matrix{Float64}`: Isometry matrix from K space to MSS
+
+# Example
+```julia
+W_MSS = iso_K2MSS(10, 0, 1)  # Zero momentum, even inversion
+MSS_Ham = W_MSS' * PXP_K_Ham(10, 0) * W_MSS  # Project Hamiltonian to MSS subspace
+```
+"""
 function iso_K2MSS(::Type{T}, k::Int64, inv::Int64=1) where {N, T <: BitStr{N}}
 #Function to map the MSS basis to the K space basis
     @assert k == 0 || k==div(N,2) "k is expected to be 0 or $(div(N,2)), but got $k"
@@ -134,6 +235,29 @@ function iso_K2MSS(::Type{T}, k::Int64, inv::Int64=1) where {N, T <: BitStr{N}}
 end
 iso_K2MSS(N::Int, k::Int64, inv::Int64=1) = iso_K2MSS(BitStr{N, Int}, k, inv)
 
+"""
+    mapstate_MSS2K(::Type{T}, state::Vector{ET}, k::Int64, inv::Int64=1) where {N, T <: BitStr{N}, ET}
+    mapstate_MSS2K(N::Int, state::Vector{ET}, k::Int64, inv::Int64=1) where {ET}
+
+Map a state from maximum symmetry subspace (MSS) to momentum K subspace.
+
+Transforms a quantum state from the MSS back to the momentum-selected subspace.
+
+# Arguments
+- `T::Type{BitStr{N}}` or `N::Int`: System size specification
+- `state::Vector{ET}`: State vector in MSS
+- `k::Int64`: Momentum quantum number (0 ≤ k ≤ N-1)
+- `inv::Int64`: Inversion flag (-1 or 1)
+
+# Returns
+- `Vector{ET}`: State vector in K subspace
+
+# Example
+```julia
+mss_state = zeros(length(PXP_MSS_basis(BitStr{10, Int}, 0)[1]))  # Some state in MSS
+k_state = mapstate_MSS2K(10, mss_state, 0, 1)
+```
+"""
 function mapstate_MSS2K(::Type{T}, state::Vector{ET}, k::Int64, inv::Int64=1) where {N, T <: BitStr{N}, ET}
     @assert k == 0 || k==div(N,2) "k is expected to be 0 or $(div(N,2)), but got $k"
     @assert inv ==1 || inv==-1 "inv is expected to be 1 or -1, but got $(inv)"
@@ -187,6 +311,27 @@ mapstate_MSS2K(N::Int, state::Vector{ET}, k::Int64, inv::Int64=1) where {ET} = m
 
 mapstate_MSS2total(N::Int64, state::Vector{ET}, k::Int64, inv::Int64=1) where {ET} = mapstate_K2total(N, mapstate_MSS2K(N, state, k, inv), k)
 
+"""
+    iso_total2MSS(::Type{T}, k::Int64, inv::Int64=1) where {N, T <: BitStr{N}}
+
+Construct the isometry mapping from total basis to maximum symmetry subspace (MSS).
+
+This is the combination of the total-to-K isometry and the K-to-MSS isometry.
+
+# Arguments
+- `T::Type{BitStr{N}}` or `N::Int`: System size specification
+- `k::Int64`: Momentum quantum number (0 ≤ k ≤ N-1)
+- `inv::Int64`: Inversion flag (-1 or 1)
+
+# Returns
+- `Matrix{Float64}`: Isometry matrix mapping total space to MSS
+
+# Example
+```julia
+W_total2mss = iso_total2MSS(10, 0, 1)  # Map total space to MSS with inversion
+MSS_Ham = W_total2mss' * PXP_Ham(BitStr{10, Int}) * W_total2mss  # Project Hamiltonian to MSS subspace
+```
+"""
 function iso_total2MSS(::Type{T}, k::Int64, inv::Int64=1) where {N, T <: BitStr{N}}
     # Function to map the total basis to the MSS space basis, k can only equal to 0 or N/2(pi)
     iso = iso_total2K(T, k) * iso_K2MSS(T, k, inv)
@@ -195,6 +340,30 @@ function iso_total2MSS(::Type{T}, k::Int64, inv::Int64=1) where {N, T <: BitStr{
 end
 iso_total2MSS(N::Int, k::Int64, inv::Int64=1) = iso_total2MSS(BitStr{N, Int}, k, inv)
 
+"""
+    rdm_PXP_MSS(::Type{T}, subsystems::Vector{Int64}, mssstate::Vector{ET}, k::Int64, inv::Int64=1) where {N,T <: BitStr{N}, ET}
+    rdm_PXP_MSS(N::Int64, subsystems::Vector{Int64}, state::Vector{ET}, k::Int64, inv::Int64=1) where {ET}
+
+Compute reduced density matrix for a state in maximum symmetry subspace (MSS).
+
+Transforms the state from MSS to total space and then computes
+the reduced density matrix for the specified subsystem.
+
+# Arguments
+- `T::Type{BitStr{N}}` or `N::Int`: System size specification
+- `subsystems::Vector{Int64}`: Subsystem sites indices
+- `mssstate::Vector{ET}`: State vector in MSS
+- `k::Int64`: Momentum quantum number
+- `inv::Int64`: Inversion flag (-1 or 1)
+
+# Returns
+- `Matrix{ET}`: Reduced density matrix of the subsystem
+
+# Example
+```julia
+rdm = rdm_PXP_MSS(10, [1,2,3], mss_state, 0, 1)
+```
+"""
 function rdm_PXP_MSS(::Type{T}, subsystems::Vector{Int64}, mssstate::Vector{ET}, k::Int64, inv::Int64=1) where {N,T <: BitStr{N}, ET}
     @assert length(PXP_MSS_basis(T, k, inv)[1]) == length(mssstate) "state length is expected to be $(length(PXP_MSS_basis(T, k, inv)[1])), but got $(length(mssstate))"
     state=mapstate_MSS2total(N, mssstate, k, inv)
@@ -396,4 +565,4 @@ function PXP_MSS_Ham(::Type{T}, k::Int, inv::Int64=1) where {N, T <: BitStr{N}}
     end
     
 end
-PXP_MSS_Ham(N::Int, k::Int, inv::Int64=1) = PXP_MSS_Ham(BitStr{N, Int}, k, inv) 
+PXP_MSS_Ham(N::Int, k::Int, inv::Int64=1) = PXP_MSS_Ham(BitStr{N, Int}, k, inv)

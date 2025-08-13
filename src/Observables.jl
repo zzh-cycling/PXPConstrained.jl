@@ -1,4 +1,33 @@
+"""
+    Observables.jl
 
+Functions for computing physical observables in the PXP model.
+This module provides tools for calculating entanglement measures, quantum information quantities,
+and other physical observables from quantum states and reduced density matrices.
+"""
+
+"""
+    ee(subrm::Matrix{ET}) where {ET}
+
+Calculate the Von Neumann entanglement entropy of a reduced density matrix.
+
+Computes S = -Tr(ρ log ρ) where ρ is the reduced density matrix.
+Handles numerical precision by filtering out very small eigenvalues.
+
+# Arguments
+- `subrm::Matrix{ET}`: Reduced density matrix (must be Hermitian)
+
+# Returns
+- `Float64`: Von Neumann entropy
+
+# Example
+```julia
+N=10
+psi = zeros(length(PXP_basis(N)))  # Example state
+rdm = rdm_PXP(10, collect(1:div(N,2)), psi)
+entropy = ee(rdm)
+```
+"""
 function ee(subrm::Matrix{ET}) where {ET}
     #  subrm=qi.ptrace(state*state',[2 for i in 1:N],[i for i in l+1:N])
     @assert ishermitian(subrm) "The reduced density matrix is not hermitian."
@@ -14,6 +43,28 @@ function ee(subrm::Matrix{ET}) where {ET}
     return EE
 end
 
+"""
+    ee_PXP_idx(N::Int64, splitlis::Vector{Int64}, idx::Int64)
+
+Calculate entanglement entropy profile for a specific eigenstate.
+
+Computes the entanglement entropy between different bipartitions of the system
+for the idx-th eigenstate of the PXP Hamiltonian.
+
+# Arguments
+- `N::Int64`: System size
+- `splitlis::Vector{Int64}`: List of bipartition sizes to compute
+- `idx::Int64`: Index of the eigenstate to analyze
+
+# Returns
+- `Vector{Float64}`: Entanglement entropies for each bipartition
+
+# Example
+```julia
+# Compute EE profile for the ground state (idx=1)
+ee_profile = ee_PXP_idx(12, [1,2,3,4,5,6], 1)
+```
+"""
 function ee_PXP_idx(N::Int64, splitlis::Vector{Int64}, idx::Int64) 
 #only calculate half the EE list
 
@@ -28,6 +79,31 @@ function ee_PXP_idx(N::Int64, splitlis::Vector{Int64}, idx::Int64)
     return EE_lis
 end
 
+"""
+    ee_PXP_state(N::Int64, splitlis::Vector{Int64}, state::Vector{ET}, MSS::Bool=false) where {ET}
+
+Calculate entanglement entropy profile for a given quantum state.
+
+Computes the entanglement entropy for different subsystem sizes for an
+arbitrary quantum state in the PXP model.
+
+# Arguments
+- `N::Int64`: System size
+- `splitlis::Vector{Int64}`: List of subsystem sizes to compute
+- `state::Vector{ET}`: Quantum state vector
+- `MSS::Bool=false`: Whether the state is in maximum symmetry subspace
+
+# Returns
+- `Vector{Float64}`: Entanglement entropies for each subsystem size
+
+# Example
+```julia
+# Compute EE profile for a custom state
+N=10
+psi = zeros(length(PXP_basis(N)))  # Example state
+ee_profile = ee_PXP_state(10, [1,2,3,4,5,6], psi)
+```
+"""
 function ee_PXP_state(N::Int64,splitlis::Vector{Int64},state::Vector{ET}, MSS::Bool=false) where {ET}
     EE_lis=zeros(length(splitlis))
     for m in eachindex(EE_lis)
@@ -41,6 +117,29 @@ function ee_PXP_state(N::Int64,splitlis::Vector{Int64},state::Vector{ET}, MSS::B
     return EE_lis
 end
 
+"""
+    mutual_information(N::Int64, subsystems::Tuple{Vector{Int64}, Vector{Int64}}, state::Vector{ET}) where {ET}
+
+Calculate the mutual information between two subsystems.
+
+Computes I(A:B) = S_A + S_B - S_AB where S represents the Von Neumann entropy.
+Mutual information quantifies the total correlation between subsystems A and B.
+
+# Arguments
+- `N::Int64`: Total system size
+- `subsystems::Tuple{Vector{Int64}, Vector{Int64}}`: Tuple of (A_sites, B_sites)
+- `state::Vector{ET}`: Quantum state vector
+
+# Returns
+- `Float64`: Mutual information I(A:B)
+
+# Example
+```julia
+A_sites = [1, 2, 3]
+B_sites = [7, 8, 9]
+mi = mutual_information(10, (A_sites, B_sites), psi)
+```
+"""
 function mutual_information(N::Int64, subsystems::Tuple{Vector{Int64}, Vector{Int64}}, state::Vector{ET}) where {ET}
     A, B = subsystems
     # MI formula defined as: I(A:B) = S_A + S_B - S_AB
@@ -60,6 +159,30 @@ end
 
 
 
+"""
+    tri_mutual_information(N::Int64, subsystems::Tuple{Vector{Int64}, Vector{Int64}, Vector{Int64}}, state::Vector{ET}) where {ET}
+
+Calculate the tripartite mutual information between three subsystems.
+
+Computes I(A:B:C) = S_A + S_B + S_C - S_AB - S_BC - S_AC + S_ABC.
+This measures genuine three-partie quantum correlations.
+
+# Arguments
+- `N::Int64`: Total system size
+- `subsystems::Tuple{Vector{Int64}, Vector{Int64}, Vector{Int64}}`: Tuple of (A_sites, B_sites, C_sites)
+- `state::Vector{ET}`: Quantum state vector
+
+# Returns
+- `Float64`: Tripartite mutual information I(A:B:C)
+
+# Example
+```julia
+A_sites = [1, 2]
+B_sites = [5, 6]
+C_sites = [9, 10]
+tmi = tri_mutual_information(10, (A_sites, B_sites, C_sites), psi)
+```
+"""
 function tri_mutual_information(N::Int64, subsystems::Tuple{Vector{Int64}, Vector{Int64}, Vector{Int64}}, state::Vector{ET}) where {ET}
     A, B, C = subsystems
     # TMI formula defined as: I(A:B:C) = S_A + S_B + S_C - S_AB - S_BC - S_AC + S_ABC
@@ -90,6 +213,29 @@ function tri_mutual_information(N::Int64, subsystems::Tuple{Vector{Int64}, Vecto
     return I_ABC
 end
 
+"""
+    qfi(Ob::Vector{Float64}, state::Vector{T}) where T
+
+Calculate the Quantum Fisher Information for a diagonal observable.
+
+Computes F_Q = 4 * Var(O) where Var(O) is the variance of the observable O
+in the given quantum state. The QFI quantifies the sensitivity of the state
+to changes in a parameter encoded in the observable.
+
+# Arguments
+- `Ob::Vector{Float64}`: Diagonal observable (eigenvalues)
+- `state::Vector{T}`: Quantum state vector
+
+# Returns
+- `Float64`: Quantum Fisher Information
+
+# Example
+```julia
+# For a spin-1/2 observable
+magnetization = magnetization = vcat(foldr(vcat, (fill([0.0, 1.0], 61))), 0.0)  # diagonal elements
+qfi_val = qfi(magnetization, psi)
+```
+"""
 function qfi(Ob::Vector{Float64}, state::Vector{T}) where T    
     # Calculate the quantum fisher information, espeically for diagonal operators.
     DeltaOb=state'*(Ob.^2 .*state)-(state'*(Ob.*state))^2
@@ -110,6 +256,27 @@ function qfi(Ob::Matrix{Float64}, state::Vector{T}) where T
     return F_Q
 end
 
+"""
+    anti_ferro_order(::Type{T}, pbc::Bool=true) where {N, T <: BitStr{N}}
+    anti_ferro_order(N::Int64, pbc::Bool=true)
+
+Compute the antiferromagnetic order parameter for each basis state.
+
+Calculates the staggered magnetization ∑ᵢ (-1)^(i+1) Zᵢ for each basis state,
+where Zᵢ = 2nᵢ - 1 and nᵢ is the occupation number.
+
+# Arguments
+- `T::Type{BitStr{N}}` or `N::Int64`: System size specification
+- `pbc::Bool=true`: Whether to use periodic boundary conditions
+
+# Returns
+- `Vector{Float64}`: Antiferromagnetic order for each basis state
+
+# Example
+```julia
+anti_ferro = anti_ferro_order(8, true)
+```
+"""
 function anti_ferro_order(::Type{T}, pbc::Bool=true) where {N, T <: BitStr{N}}
 #param N: Number of sites
 #return:  antiferromagnetic order diagonal elements
@@ -130,6 +297,26 @@ function anti_ferro_order(::Type{T}, pbc::Bool=true) where {N, T <: BitStr{N}}
 end
 anti_ferro_order(N::Int64, pbc::Bool=true) = anti_ferro_order(BitStr{N, Int}, pbc)
 
+"""
+    domain_wall_density(::Type{T}, pbc::Bool=true) where {N, T <: BitStr{N}}
+
+Compute the domain wall density for each basis state.
+
+Calculates (1/N) ∑ᵢ (1-ZᵢZ_{i+1})/2 where Zᵢ are Pauli-Z eigenvalues.
+Measures the fraction of nearest-neighbor pairs with opposite spins.
+
+# Arguments
+- `T::Type{BitStr{N}}`: System size specification
+- `pbc::Bool=true`: Whether to use periodic boundary conditions
+
+# Returns
+- `Vector{Float64}`: Domain wall density for each basis state
+
+# Example
+```julia
+dwd = domain_wall_density(BitStr{8, Int}, true)
+```
+"""
 function domain_wall_density(::Type{T}, pbc::Bool=true) where {N, T <: BitStr{N}}
     # return domain_wall_density， defined as 1/N sum_i (1-Z_i*Z_{i+1})/2
     basis = PXP_basis(T, pbc)
@@ -161,6 +348,25 @@ function domain_wall_density(::Type{T}, pbc::Bool=true) where {N, T <: BitStr{N}
 end
 domain_wall_density(N::Int64, pbc::Bool=true) = domain_wall_density(BitStr{N, Int}, pbc)
 
+"""
+    particlenumber(::Type{T}, pbc::Bool=true) where {N, T <: BitStr{N}}
+
+Compute the particle number for each basis state.
+
+Simply counts the number of excited sites (1s) in each basis state.
+
+# Arguments
+- `T::Type{BitStr{N}}`: System size specification
+- `pbc::Bool=true`: Whether to use periodic boundary conditions
+
+# Returns
+- `Vector{Float64}`: Particle number for each basis state
+
+# Example
+```julia
+n_particles = particlenumber(BitStr{8, Int}, true)
+```
+"""
 function particlenumber(::Type{T},pbc::Bool=true) where {N, T <: BitStr{N}}
 #param N: Number of sites,return: Particle number operator
 
@@ -205,6 +411,26 @@ function ergotropy_PXP_idx(N::Int64, l::Int64, idx::Int64, pbc::Bool=true)
     return GS_energy, subenergy[1], passive_energy
 end
 
+"""
+    ergotropy_PXP_state(N::Int64, l::Int64, state::Vector{ET}, pbc::Bool=true) where {ET}
+
+Calculate the ergotropy of a PXP state. Ergotropy is the maximum extractable work from a quantum state.
+
+# Arguments
+- `N::Int64`: Total system size
+- `l::Int64`: Subsystem size (number of sites in the reduced density matrix)
+- `state::Vector{ET}`: Quantum state vector
+- `pbc::Bool=true`: Whether to use periodic boundary conditions
+
+# Returns
+- `Float64`: Ground state energy, first eigenvalue, and passive energy
+
+# Example
+```julia
+# For a PXP state with 10 sites and reduced density matrix of size 5
+ergotropy = ergotropy_PXP_state(10, 5, psi)
+```
+"""
 function ergotropy_PXP_state(N::Int64, l::Int64,  state::Vector{ET}, pbc::Bool=true) where {ET}
     HA=PXP_Ham(BitStr{l, Int}, false)
     subenergy, substates= eigen(HA)
@@ -218,6 +444,28 @@ function ergotropy_PXP_state(N::Int64, l::Int64,  state::Vector{ET}, pbc::Bool=t
     return GS_energy, subenergy[1], passive_energy
 end
 
+"""
+    ergotropy_PXP_MSS_state(L::Int, l::Int, state::Vector{T}, k::Int=0, inv::Int64=1) where T
+
+Calculate the ergotropy of a PXP state in the maximum symmetry subspace (MSS). Here the reference energy is still the total Hilbert space OBC PXP_Ham.
+
+# Arguments
+- `L::Int`: Total system size
+- `l::Int`: Subsystem size (number of sites in the reduced density matrix)
+- `state::Vector{T}`: Quantum state vector in MSS basis
+- `k::Int=0`: Momentum quantum number (default 0)
+- `inv::Int64=1`: Inversion symmetry (default 1)
+
+# Returns
+- `Float64`: Ground state energy, first eigenvalue, and passive energy
+
+# Example
+```julia
+# For a PXP state in MSS with 12 sites and reduced density matrix of size 6
+psi_mss = zeros(length(PXP_MSS_basis(BitStr{12, Int}, 0)[1]))  # Example state in MSS basis
+ergotropy = ergotropy_PXP_MSS_state(12, 6, psi_mss)
+```
+"""
 function ergotropy_PXP_MSS_state(L::Int, l::Int, state::Vector{T}, k::Int=0, inv::Int64=1) where T
     HA = PXP_Ham(l, false)
     subenergy, substates = eigen(HA)

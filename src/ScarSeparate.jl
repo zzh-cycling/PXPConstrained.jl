@@ -1,3 +1,27 @@
+"""
+    ScarSeparate.jl
+
+Functions for Forward Scattering Approximation (FSA) and quantum many-body scars.
+This module implements the FSA framework for understanding quantum many-body scars
+in the PXP model and provides tools for scar state separation and analysis.
+"""
+
+"""
+    actingHplus_PXP(::Type{T}, rowstate::T) where {N, T <: BitStr{N}}
+
+Apply the H+ operator for Forward Scattering Approximation.
+
+Implements the raising part of the FSA Hamiltonian, which acts differently
+on even and odd sites to preserve the FSA structure.
+
+# Arguments
+- `T::Type{BitStr{N}}`: System size specification
+- `rowstate::T`: Input basis state
+
+# Returns
+- `Vector{T}`: Output states after applying H+
+
+"""
 function actingHplus_PXP(::Type{T}, rowstate::T) where {N, T <: BitStr{N}}
     mask = bmask(T, N, N-2)
     fl = bmask(T, N-1)
@@ -27,6 +51,22 @@ function actingHplus_PXP(::Type{T}, rowstate::T) where {N, T <: BitStr{N}}
 end
 
 
+"""
+    actingHminus_PXP(::Type{T}, rowstate::T) where {N, T <: BitStr{N}}
+
+Apply the H- operator for Forward Scattering Approximation.
+
+Implements the lowering part of the FSA Hamiltonian, complementary to H+.
+Applies σ⁻ on odd sites and σ⁺ on even sites under the PXP constraint.
+
+# Arguments
+- `T::Type{BitStr{N}}`: System size specification
+- `rowstate::T`: Input basis state
+
+# Returns
+- `Vector{T}`: Output states after applying H-
+
+"""
 function actingHminus_PXP(::Type{T}, rowstate::T) where {N, T <: BitStr{N}}
     output = T[]
     
@@ -62,6 +102,28 @@ function actingHminus_PXP(::Type{T}, rowstate::T) where {N, T <: BitStr{N}}
     return output
 end
 
+"""
+    iso_total2FSA(::Type{T}) where {N, T <: BitStr{N}}
+    iso_total2FSA(N::Int)
+
+Construct the isometry mapping from total basis to FSA subspace.
+
+Creates the transformation that projects the full PXP Hilbert space onto
+the Forward Scattering Approximation subspace, which contains the quantum
+many-body scar states.
+
+# Arguments
+- `T::Type{BitStr{N}}` or `N::Int`: System size specification
+
+# Returns
+- `Matrix{Float64}`: Matrix with FSA scar states as columns
+
+# Example
+```julia
+fsa_states = iso_total2FSA(10)  # Generate FSA tower for 10 sites
+scar_energies = eigvals(fsa_states' * H * fsa_states)
+```
+"""
 function iso_total2FSA(::Type{T}) where {N, T <: BitStr{N}}
     # Once you have isometry, you can use it to map the total basis to the target basis. So you do not need to write the PXP_FSA_basis function.
     basis= PXP_basis(T)
@@ -91,6 +153,26 @@ function iso_total2FSA(::Type{T}) where {N, T <: BitStr{N}}
 end
 iso_total2FSA(N::Int) = iso_total2FSA(BitStr{N, Int})
 
+"""
+    PXP_FSA_Ham(::Type{T}) where {N, T <: BitStr{N}}
+
+Construct the PXP Hamiltonian projected to Forward Scattering Approximation subspace.
+
+Projects the full PXP Hamiltonian onto the FSA subspace containing the quantum
+many-body scar states. The resulting matrix has exactly solvable spectrum.
+
+# Arguments
+- `T::Type{BitStr{N}}`: System size specification
+
+# Returns
+- `Matrix{Float64}`: FSA Hamiltonian matrix
+
+# Example
+```julia
+H_fsa = PXP_FSA_Ham(BitStr{10, Int})
+eigenvals, eigenvecs = eigen(H_fsa)
+```
+"""
 function PXP_FSA_Ham(::Type{T}) where {N, T <: BitStr{N}}
 #This function is based on Forward Scattering Approximation, utilizes the function PXP_FSA_basis to build the basis, 
 #and project the PXP Hamiltonian to its FSA subspace. It has an input parameter N, the system size, and outputs the FSA matrix.
@@ -140,6 +222,26 @@ function proj_FSA2total(::Type{T}) where {N, T <: BitStr{N}}
     return Proj
 end
 
+"""
+    sep_scar_FSA(::Type{T}, energy::Vector{Float64}, states::Matrix{Float64}) where {N, T <: BitStr{N}}
+
+Separate the scar state using Forward Scattering Approximation method.
+
+Projects the full PXP Hamiltonian onto the FSA subspace containing the quantum
+many-body scar states. The resulting matrix has exactly solvable spectrum. Where the maximall eigenvals is the scar state, and the rest are thermal states.
+
+# Arguments
+- `T::Type{BitStr{N}}`: System size specification
+
+# Returns
+- `Matrix{Float64}`: FSA scar state and thermal states
+
+# Example
+```julia
+energy, states = eigen(PXP_FSA_Ham(BitStr{10, Int}))
+scar, thermal = sep_scar_FSA(BitStr{10, Int}, energy, states)
+```
+"""
 function sep_scar_FSA(::Type{T}, energy::Vector{Float64},states::Matrix{Float64}) where {N, T <: BitStr{N}}
     indices=[index for (index,value) in enumerate(energy) if abs(value)<=1e-8]
     P_FSA=proj_FSA2total(T)
@@ -314,6 +416,25 @@ function vec2k0pi(::Type{T}, state::Vector{ET}) where {N, T <: BitStr{N}, ET}
     return statek0,statekpi
 end
 
+"""
+    sep_scar_exact(::Type{T}, energy::Vector{Float64}, states::Matrix{Float64}) where {N, T <: BitStr{N}}
+
+Separate the scar state using exact scar solution.
+
+Projects out the exact PXP zero energy scar states. Where the maximal eigenvals is the scar state, and the rest are thermal states.
+
+# Arguments
+- `T::Type{BitStr{N}}`: System size specification
+
+# Returns
+- `Vector{Float64}, Matrix{Float64}`: FSA scar state, scar prime state, and thermal states
+
+# Example
+```julia
+energy, states = eigen(PXP_FSA_Ham(BitStr{10, Int}))
+scar1, scar2, thermal = sep_scar_exact(BitStr{10, Int}, energy, states)
+```
+"""
 function sep_scar_exact(::Type{T}, energy::Vector{Float64}, states::Matrix{Float64}) where {N, T <: BitStr{N}} 
     indices = [index for (index, value) in enumerate(energy) if abs(value) <= 1e-8]
     Trans = translation_matrix(T)

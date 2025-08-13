@@ -1,3 +1,19 @@
+"""
+    PXPConstrained
+
+A Julia package for simulating the 1D PXP chain with Rydberg blockade constraints.
+
+This module provides comprehensive tools for:
+- Generating constrained basis states (Fibonacci chains)
+- Constructing PXP Hamiltonians with periodic/open boundary conditions
+- Implementing translational and inversion symmetries
+- Computing observables and entanglement measures
+- Time evolution dynamics
+- Sparse matrix representations for large systems
+
+The PXP model describes Rydberg atom arrays with nearest-neighbor blockade constraints,
+where atoms cannot be simultaneously excited if they are adjacent.
+"""
 module PXPConstrained
 
 using BitBasis

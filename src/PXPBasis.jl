@@ -1,7 +1,25 @@
-#This PXP_basis package is used to generate the basis for PXP model, and also the Hamiltonian matrix for PXP model according to their basis.  
-#Totally we have three kinds of functions, basis, Ham, reduced_dm. We consider both PBC and OBC in the basis and Hamiltonian matrix, and we also consider the translational symmetry and inversion symmetry, and FSA subspace.
+"""
+    PXPBasis.jl
 
+Functions for generating basis states and Hamiltonians for the PXP model.
+This module handles the construction of constrained Fibonacci chains that satisfy
+the Rydberg blockade condition and provides utilities for reduced density matrices.
+"""
 
+"""
+    Fibonacci_chain_OBC(::Type{T}) where {N, T <: BitStr{N}}
+
+Generate the constrained basis for the PXP model with open boundary conditions.
+
+Creates all valid bit configurations where no two adjacent sites can both be excited,
+following the Fibonacci sequence growth pattern.
+
+# Arguments
+- `T::Type{BitStr{N}}`: Bit string type specifying system size N
+
+# Returns
+- `Vector{T}`: All valid basis states satisfying the constraint
+"""
 function Fibonacci_chain_OBC(::Type{T}) where {N, T <: BitStr{N}}
     # Generate Fibonacci chain for PXP model with open boundary condition
     fib_chain=[[T(0), T(1)],[T(0), T(1), T(2)]]
@@ -12,11 +30,46 @@ function Fibonacci_chain_OBC(::Type{T}) where {N, T <: BitStr{N}}
     return fib_chain[N]
 end
 
+"""
+    Fibonacci_chain_PBC(::Type{T}) where {N, T <: BitStr{N}}
+
+Generate the constrained basis for the PXP model with periodic boundary conditions.
+
+Creates all valid bit configurations for a ring geometry where the first and last
+sites are also neighbors, adding additional constraint checks.
+
+# Arguments
+- `T::Type{BitStr{N}}`: Bit string type specifying system size N
+
+# Returns
+- `Vector{T}`: All valid basis states satisfying PBC constraints
+"""
 function Fibonacci_chain_PBC(::Type{T}) where {N, T <: BitStr{N}}
     # Generate Fibonacci chain  for PXP model with periodic boundary condition
     return filter(c -> iszero((c >> (N-1)) & (c & 1)), Fibonacci_chain_OBC(T))
 end
 
+"""
+    actingH_PXP(::Type{T}, state::T, pbc::Bool=true) where {N, T <: BitStr{N}}
+
+Apply the PXP Hamiltonian to a given basis state.
+
+The PXP Hamiltonian flips spins at sites where both neighbors are in the ground state,
+respecting the Rydberg blockade constraint. Returns all possible output states.
+
+# Arguments
+- `T::Type{BitStr{N}}`: Bit string type specifying system size N
+- `state::T`: Input basis state to act upon
+- `pbc::Bool=true`: Whether to use periodic boundary conditions
+
+# Returns
+- `Vector{T}`: All output states after applying the Hamiltonian
+
+# Example
+```julia
+outputs = actingH_PXP(BitStr{6, Int}, BitStr{6}(5), true)
+```
+"""
 function actingH_PXP(::Type{T}, state::T, pbc::Bool=true) where {N, T <: BitStr{N}}
     # The type of n is DitStr{D, N, Int}, which is a binary string with length N in D-ary form.
     # Acting Hamiltonian on a given state in bitstr and return the output states in bitstr
@@ -48,6 +101,27 @@ function actingH_PXP(::Type{T}, state::T, pbc::Bool=true) where {N, T <: BitStr{
     return output
 end
 
+"""
+    PXP_basis(::Type{T}, pbc::Bool=true) where {N, T <: BitStr{N}}
+    PXP_basis(N::Int, pbc::Bool=true)
+
+Generate the complete basis for the PXP model.
+
+Creates all valid basis states that satisfy the Rydberg blockade constraint, sorted in ascending order for efficient searching.
+
+# Arguments
+- `T::Type{BitStr{N}}` or `N::Int`: System size specification
+- `pbc::Bool=true`: Whether to use periodic boundary conditions
+
+# Returns
+- `Vector{BitStr{N}}`: Sorted list of all valid basis states
+
+# Example
+```julia
+basis = PXP_basis(8, true)  # 8 sites with PBC
+basis_obc = PXP_basis(8, false)  # 8 sites with OBC
+```
+"""
 function PXP_basis(::Type{T},pbc::Bool=true) where {N, T <: BitStr{N}}
     # Generate basis for PXP model, return both decimal and binary form, where we both consider PBC and OBC
     if pbc
@@ -60,6 +134,28 @@ function PXP_basis(::Type{T},pbc::Bool=true) where {N, T <: BitStr{N}}
 end
 PXP_basis(N::Int, pbc::Bool=true) = PXP_basis(BitStr{N, Int}, pbc)
 
+"""
+    PXP_Ham(::Type{T}, pbc::Bool=true) where {N, T <: BitStr{N}}
+    PXP_Ham(N::Int, pbc::Bool=true)
+
+Construct the full Hamiltonian matrix for the PXP model.
+
+Builds the Hamiltonian matrix in the constrained basis by applying the PXP
+operator to each basis state and recording the matrix elements.
+
+# Arguments
+- `T::Type{BitStr{N}}` or `N::Int`: System size specification
+- `pbc::Bool=true`: Whether to use periodic boundary conditions
+
+# Returns
+- `Matrix{Float64}`: The PXP Hamiltonian matrix
+
+# Example
+```julia
+H = PXP_Ham(8, true)  # 8-site PXP Hamiltonian with PBC
+eigenvals, eigenvecs = eigen(H)
+```
+"""
 function PXP_Ham(::Type{T}, pbc::Bool=true) where {N, T <: BitStr{N}}
     # Generate Hamiltonian for PXP model, automotically contain pbc or obc
     basis=PXP_basis(T,pbc)
@@ -78,16 +174,64 @@ function PXP_Ham(::Type{T}, pbc::Bool=true) where {N, T <: BitStr{N}}
 end
 PXP_Ham(N::Int, pbc::Bool=true) = PXP_Ham(BitStr{N, Int}, pbc)
 
+"""
+    process_join(a, b)
+
+Join two lists by computing their Cartesian product.
+
+Helper function for creating composite basis states from multiple subsystems.
+
+# Arguments
+- `a`, `b`: Lists to be joined
+
+# Returns
+- `Vector`: Vectorized Cartesian product of the two lists
+"""
 # join two lists of basis by make a product of two lists
 function process_join(a, b)
     return vec([join(b, a) for a in a, b in b])
 end
 
+"""
+    joint_pxp_basis(lengthlis::Vector{Int})
+
+Create PXP basis for multiple disjoint sub-chains.
+
+Generates the basis for a system composed of multiple disconnected chains,
+each with open boundary conditions.
+
+# Arguments
+- `lengthlis::Vector{Int}`: Lengths of each sub-chain
+
+# Returns
+- `Vector`: Combined and sorted basis for the composite system
+
+"""
 # create pxp basis composed of multiple disjoint sub-chains
 function joint_pxp_basis(lengthlis::Vector{Int})
     return sort(mapreduce(len -> PXP_basis(len, false), process_join, lengthlis))
 end
 
+"""
+    connected_components(v::Vector{Int})
+
+Find connected components in a sorted list of integers.
+
+Groups consecutive integers into separate segments, useful for identifying
+contiguous subsystems in quantum many-body calculations.
+
+# Arguments
+- `v::Vector{Int}`: Sorted vector of integers
+
+# Returns
+- `Vector{Vector{Int}}`: List of connected components (consecutive segments)
+
+# Example
+```julia
+components = connected_components([1, 2, 3, 5, 6, 8])
+# Returns: [[1, 2, 3], [5, 6], [8]]
+```
+"""
 function connected_components(v::Vector{Int})
     if isempty(v)
         return []
@@ -112,6 +256,22 @@ function connected_components(v::Vector{Int})
     return result
 end
 
+"""
+    move_subsystem(::Type{BitStr{M, INT}}, basis::BitStr{N, INT}, subsystems::Vector{Int}) where {M, N, INT}
+
+Move specified subsystem bits to the left of a larger bit string.
+
+Rearranges bits to place the selected subsystem at the beginning of the bit string,
+useful for constructing reduced density matrices.
+
+# Arguments
+- `BitStr{M, INT}`: Target bit string type with size M
+- `basis::BitStr{N, INT}`: Source bit string with size N
+- `subsystems::Vector{Int}`: Indices of subsystem sites
+
+# Returns
+- `BitStr{M}`: Rearranged bit string with subsystem bits at the left
+"""
 function move_subsystem(::Type{BitStr{M, INT}}, basis::BitStr{N, INT}, subsystems::Vector{Int}) where {M, N, INT}
     # Move the subsystem bits to the left of the basis, and return a new basis with the subsystem bits moved to the left, and move into the bigger basis.
     @assert length(subsystems) == N "subsystems length is expected to be $N, but got $(length(subsystems))"
@@ -119,11 +279,66 @@ function move_subsystem(::Type{BitStr{M, INT}}, basis::BitStr{N, INT}, subsystem
     return sum(i -> BitStr{M}(readbit(basis.buf, i) << (M - subsystems[N-i+1])), 1:N)
 end
 
+"""
+    takeenviron(x, mask::BitStr{l}) where {l}
+
+Extract the environment part of a basis state.
+
+Returns the bits that are not part of the specified subsystem.
+
+# Arguments
+- `x`: Full basis state
+- `mask::BitStr{l}`: Mask specifying the subsystem bits
+
+# Returns
+- Environment part of the basis state
+"""
 # take environment part of a basis
 takeenviron(x, mask::BitStr{l}) where {l} = x & (~mask)
+
+"""
+    takesystem(x, mask::BitStr{l}) where {l}
+
+Extract the subsystem part of a basis state.
+
+Returns only the bits that belong to the specified subsystem.
+
+# Arguments
+- `x`: Full basis state  
+- `mask::BitStr{l}`: Mask specifying the subsystem bits
+
+# Returns
+- Subsystem part of the basis state
+"""
 # take system part of a basis
 takesystem(x, mask::BitStr{l}) where {l} = (x & mask)
 
+"""
+    rdm_PXP(::Type{T}, subsystems::Vector{Int64}, state::Vector{ET}, pbc::Bool=true) where {N,T <: BitStr{N}, ET}
+    rdm_PXP(N::Int, subsystems::Vector{Int64}, state::Vector{ET}, pbc::Bool=true) where {ET}
+
+Compute the reduced density matrix for a subsystem of state in PXP basis.
+
+Traces out the environment degrees of freedom to obtain the reduced density matrix
+of the specified subsystem. Handles connected components automatically.
+
+# Arguments
+- `T::Type{BitStr{N}}` or `N::Int`: System size specification
+- `subsystems::Vector{Int64}`: Indices of sites to include in the subsystem
+- `state::Vector{ET}`: Input quantum state vector
+- `pbc::Bool=true`: Whether to use periodic boundary conditions
+
+# Returns
+- `Matrix{ET}`: Reduced density matrix of the subsystem
+
+# Example
+```julia
+# Get reduced density matrix for sites 1-4
+psi = normalized_eigenstate  # some quantum state
+rdm = rdm_PXP(12, collect(1:4), psi, true)
+ee_value = ee(rdm)  # compute entanglement entropy
+```
+"""
 function rdm_PXP(::Type{T}, subsystems::Vector{Int64}, state::Vector{ET}, pbc::Bool=true) where {N,T <: BitStr{N}, ET}
     # Usually subsystem indices count from the right of binary string. But this version we can count from the left, which is consistent with our intuition. This means that the systems we want to keep.
     # The function is to take common environment parts of the total basis, get the index of system parts in reduced basis, and then calculate the reduced density matrix.
@@ -170,6 +385,23 @@ end
 rdm_PXP(N::Int, subsystems::Vector{Int64}, state::Vector{ET}, pbc::Bool=true) where {ET} = rdm_PXP(BitStr{N, Int}, subsystems, state, pbc)
 
 
+"""
+    myprint(io::IO, xs...)
+
+Enhanced print function with automatic flushing.
+
+Prints arguments to the specified IO stream with an extra newline and
+flushes the buffer to ensure immediate output, useful for real-time monitoring.
+
+# Arguments
+- `io::IO`: Output stream
+- `xs...`: Arguments to print
+
+# Example
+```julia
+myprint(stdout, "Results:", value1, value2)
+```
+"""
 function myprint(io::IO, xs...)
     println(io, xs..., '\n')
     flush(io)
