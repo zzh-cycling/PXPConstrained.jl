@@ -72,3 +72,48 @@ savefig("/Users/cycling/Documents/projects/quantumErgotropy/figs/exact_scar/exac
 
 Plots.plot(Nlis, deltaS, seriestype=:scatter, xlabel=L"N", ylabel=L"\Delta S= S(|\Psi, k=0 \rangle)- S(|\Psi, k=\pi \rangle)", legend=false)
 savefig("/Users/cycling/Documents/projects/quantumErgotropy/figs/exact_scar/exact_wosymmetry/EE/DeltaSk0kpiN.pdf")
+
+N=16
+thetalis = collect(range(0, π, 49))
+stlis = rotated_psi_state.(N, thetalis)
+ρlis = [rdm_PXP(N, collect(1:div(N,2)-1), st) for st in stlis]
+eslis = [eigvals(ρ) for ρ in ρlis]
+truncate_Slis = [sum(x-> -x*log(x), es[end-2:end]) for es in eslis]
+numer_Slis = [ee(rho) for rho in ρlis]
+
+plot(thetalis, numer_Slis, seriestype=:scatter, xlabel=L"\theta", ylabel=L"S(\theta)", label="", legend=false)
+plot!(thetalis, truncate_Slis)
+esmat = hcat(eslis...)
+
+fig = plot(thetalis, esmat[end-4:end-1, :]', seriestype=:scatter, xlabel=L"\theta", ylabel=L"eigenvalues", label="", legend=false)
+
+f(t) = sqrt(2)*sqrt(44*cos(2*t)-3*cos(4*t)+87)
+h(t) = -16cos(t)- 2cos(2t) + 2
+ρ1(t) = 1 + (4h(t)^2 - f(t)^2)/(2f(t)^2 + 4h(t)*f(t))
+ρ2(t) = 1 + (8*(sin(2t) + 2sin(t))^2)/(f(t)^2 + 2h(t)*f(t))
+plot!(thetalis, ρ1.(thetalis), label=L"\rho_1(\theta)", color=:red)
+plot!(thetalis, ρ2.(thetalis), label=L"\rho_2(\theta)", color=:blue)
+
+Δ(θ) = sqrt(174 + 88*cos(2θ) - 6*cos(4θ))
+
+den(θ) = (-87 - cos(2θ)*(44 + Δ(θ)) + Δ(θ) + 8cos(θ)*Δ(θ) + 3cos(4θ))^2
+
+# 第一项
+expr1(θ) = 4096 * sin(θ/2)^8 * sin(θ)^4 / den(θ)
+
+# 第二项
+numer2(θ) = (-2 - 16cos(θ) + 2cos(2θ) + Δ(θ))^4
+expr2(θ) = numer2(θ) / (16 * den(θ))
+
+plot(thetalis, expr1.(thetalis), label=L"e_1(\theta)", color=:green)
+plot!(thetalis, expr2.(thetalis), label=L"e_2(\theta)", color=:orange)
+
+λ1lis = expr1.(thetalis)
+λ2lis = expr2.(thetalis)
+Slis = zeros(length(thetalis))
+
+for i in eachindex(thetalis)
+    Slis[i] = -λ1lis[i]*log(λ1lis[i]) - λ2lis[i]*log(λ2lis[i])
+end
+
+plot(thetalis, Slis, seriestype=:scatter, xlabel=L"\theta", ylabel=L"S(\theta)", label="", legend=false)
