@@ -119,10 +119,10 @@ Z2 state |10101010...⟩, where Y is the total spin-Y operator.
 psi_rot = rotated_psi_state(10, π/3)
 ```
 """
-function rotated_psi_state(::Type{T}, θ::Real) where {N, T<: BitStr{N}}
+function rotated_psi_state(::Type{T}, θ::Real, pbc::Bool=true) where {N, T<: BitStr{N}}
     # params: the particlenumber of the space, and rotation angle θ for the Z2 state
     # return: the state rotated by on site rotation exp(i θ/2 Y)
-    basis = PXP_basis(T)
+    basis = PXP_basis(T, pbc)
     rotated_state = zeros(Float64, length(basis))
     
     for (i, base) in enumerate(basis)
@@ -132,7 +132,7 @@ function rotated_psi_state(::Type{T}, θ::Real) where {N, T<: BitStr{N}}
     
     return rotated_state ./ norm(rotated_state)
 end
-rotated_psi_state(N::Int64, θ::Real) = rotated_psi_state(BitStr{N, Int}, θ)
+rotated_psi_state(N::Int64, θ::Real, pbc::Bool=true) = rotated_psi_state(BitStr{N, Int}, θ, pbc)
 
 
 function count_zeros_and_ones(base::BitStr{N}) where {N}
