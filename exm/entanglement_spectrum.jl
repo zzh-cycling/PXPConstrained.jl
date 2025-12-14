@@ -60,14 +60,12 @@ for (i, θ) in enumerate(θlis)
     formula_eelis[i] = -λ1_val*log(λ1_val) - λ2_val*log(λ2_val) - λ3_val*log(λ3_val)
 end
 
-spectrum = zeros(4, length(θlis))
+spectrum = zeros(2, length(θlis))
 ⊗(a::AbstractArray, b::AbstractArray) = kron(a, b)
 for (i, θ) in enumerate(θlis)
-    # v2LABv2RAB = reshape(normvec2LAB(θ),2,2)*reshape(normvec2RAB(θ),2,2)
-    # v2LBAv2RBA = reshape(normvec2LBA(θ),2,2)*reshape(normvec2RBA(θ),2,2)
-    v2LABv2RBA = reshape(normvec2LAB(θ),2,2)*reshape(normvec2RBA(θ),2,2)
-    v2LBAv2RAB = reshape(normvec2LBA(θ),2,2)*reshape(normvec2RAB(θ),2,2)
-    M = v2LABv2RBA ⊗  v2LBAv2RAB
+    v2LABv2RAB = reshape(normvec2LAB(θ),2,2)*reshape(normvec2RAB(θ),2,2)
+    v2LBAv2RBA = reshape(normvec2LBA(θ),2,2)*reshape(normvec2RBA(θ),2,2)
+    M = v2LABv2RAB ⊗ v2LBAv2RBA 
     spectrum[:, i] = diag(M)
     M /= tr(M)
     matrix_eelis[i] = -sum(spectrum[:, i].*log.(spectrum[:, i]))
@@ -93,15 +91,21 @@ plot!(θlis[1:end-1], [normvec2RAB(θ)[4] for θ in θlis[1:end-1]], lw=2, label
 plot!(θlis[1:end-1], [normvec2LBA(θ)[4] for θ in θlis[1:end-1]], lw=2, label="LBA")
 plot!(θlis[1:end-1], [normvec2RBA(θ)[4] for θ in θlis[1:end-1]], lw=2, label="RBA")
 
-plot(θlis[1:end-1], [normvec2LAB(θ)[1] for θ in θlis[1:end-1]], lw=2, label="LAB",
+plot(θlis[1:end-1], [(normvec2LAB(θ)[4]*normvec2LBA(θ)[4]*normvec2RAB(θ)[4]*normvec2RBA(θ)[4]) for θ in θlis[1:end-1]], lw=2, label="LAB*RAB*LBA*RBA",
     legend_background_color=nothing,
     legend_foreground_color=nothing,
     xlabel = L"θ",
-    ylabel = "Element1",
+    ylabel = "Element4",
 )
-plot!(θlis[1:end-1], [normvec2RAB(θ)[1] for θ in θlis[1:end-1]], lw=2, label="RAB")
-plot!(θlis[1:end-1], [normvec2LBA(θ)[1] for θ in θlis[1:end-1]], lw=2, label="LBA")
-plot!(θlis[1:end-1], [normvec2RBA(θ)[1] for θ in θlis[1:end-1]], lw=2, label="RBA")
+# plot(θlis[1:end-1], [normvec2LAB(θ)[1] for θ in θlis[1:end-1]], lw=2, label="LAB",
+#     legend_background_color=nothing,
+#     legend_foreground_color=nothing,
+#     xlabel = L"θ",
+#     ylabel = "Element1",
+# )
+# plot!(θlis[1:end-1], [normvec2RAB(θ)[1] for θ in θlis[1:end-1]], lw=2, label="RAB")
+# plot!(θlis[1:end-1], [normvec2LBA(θ)[1] for θ in θlis[1:end-1]], lw=2, label="LBA")
+# plot!(θlis[1:end-1], [normvec2RBA(θ)[1] for θ in θlis[1:end-1]], lw=2, label="RBA")
 
 
 fig_eelis = plot(θlis, eelis, lw=2, label="Numerical",
