@@ -183,13 +183,7 @@ function PXP_FSA_Ham(::Type{T}) where {N, T <: BitStr{N}}
 # Examples
 
     Ham = PXP_Ham(T, true)
-    file_path = "a/Users/cycling/Documents/projects/big_data/scar_thermal_FSA/iso_FSA/iso_total2FSA$(N).jld"
-
-    if isfile(file_path)
-        iso = load(file_path, "iso")
-    else
-        iso = iso_total2FSA(T)
-    end
+    iso = iso_total2FSA(T)
     
     H = iso' * Ham * iso
     return H
@@ -206,17 +200,9 @@ function proj_FSA(::Type{T}) where {N, T <: BitStr{N}}
 end
 
 function proj_FSA2total(::Type{T}) where {N, T <: BitStr{N}}
-    # iso=iso_total2FSA(N)
-
-    parent_path=homedir()
-    file_path=joinpath(parent_path, "/Documents/projects/big_data/scar_thermal_FSA/iso_FSA/iso_total2FSA$(N).jld")
-
-    if isfile(file_path)
-        iso = load(file_path, "iso")
-    else
-        iso = iso_total2FSA(T)
-    end
-
+    
+    iso = iso_total2FSA(T)
+    
     energy,states=eigen(PXP_FSA_Ham(T))
     Proj=iso*states*states'*iso'
     return Proj
@@ -225,10 +211,10 @@ end
 """
     sep_scar_FSA(::Type{T}, energy::Vector{Float64}, states::Matrix{Float64}) where {N, T <: BitStr{N}}
 
-Separate the scar state using Forward Scattering Approximation method.
+Separate the scar state using Forward Scattering Approximation method (especially for zero energy shell).
 
 Projects the full PXP Hamiltonian onto the FSA subspace containing the quantum
-many-body scar states. The resulting matrix has exactly solvable spectrum. Where the maximall eigenvals is the scar state, and the rest are thermal states.
+many-body scar states (theoretically). The resulting matrix has exactly solvable spectrum. Where the maximall eigenvals is the scar state, and the rest are thermal states.
 
 # Arguments
 - `T::Type{BitStr{N}}`: System size specification

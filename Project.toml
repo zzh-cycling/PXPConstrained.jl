@@ -1,7 +1,7 @@
 name = "PXPConstrained"
 uuid = "8cfe9474-f479-4508-8508-79c8ccd3ccb0"
 authors = ["Zhaohui Zhi <2276780832@qq.com> and contributors"]
-version = "1.0.0-DEV"
+version = "1.1.0"
 
 [deps]
 BitBasis = "50ba71b6-fa0f-514d-ae9a-0916efc90dcf"
@@ -9,13 +9,17 @@ ExponentialUtilities = "d4d017d3-3776-5f7e-afef-a10c40355c18"
 ITensors = "9136182c-28ba-11e9-034c-db9fb085ebd5"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
-Yao = "5872b779-8223-5990-8dd0-5abbb0748c8c"
 
 [compat]
 julia = "1"
+BitBasis = "0.9"
+ExponentialUtilities = "1.27"
+ITensors = "0.9"
+Yao = "0.9"
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+Yao = "5872b779-8223-5990-8dd0-5abbb0748c8c"
 
 [targets]
-test = ["Test"]
+test = ["Test", "Yao"]

@@ -73,10 +73,10 @@ psi_t = wf_time_evolution_sparse(12, 0, psi0_mss, times)
 ```
 """
 function wf_time_evolution_sparse(L::Int, k::Int64, psi0::Vector{ET}, t_values::Vector{Float64}) where {ET}
-    # 预先计算时间步长
+    # Precalculate the time step
     dt = t_values[2] - t_values[1]
     H = PXP_MSS_Ham_sparse(L, k)
-    # 初始化存储波函数的数组
+    # Initialize the wavefunction array
     @assert length(psi0) == size(H, 1) "state length is expected to be $(size(H, 1)), but got $(length(psi0))"
     wavefunctions = Vector{Vector{ComplexF64}}(undef, length(t_values))
     wavefunctions[1] = copy(psi0)
@@ -89,7 +89,7 @@ function wf_time_evolution_sparse(L::Int, k::Int64, psi0::Vector{ET}, t_values::
         
     psi_t = copy(psi0)
     for i in 2:length(t_values)
-        # 使用 expv 计算波函数的时间演化
+        # Use expv to compute the action of the exponential of the Hamiltonian on the state
         psi_t = expv(-im * dt, H, psi_t; ishermitian=true)   
         wavefunctions[i] = psi_t
     end
@@ -141,13 +141,13 @@ function count_zeros_and_ones(base::BitStr{N}) where {N}
     odd_zeros = 0
     odd_ones = 0
     for j in 1:N
-        if j % 2 == 1  # 奇数位
+        if j % 2 == 1  # Odd position (1-based indexing)
             if base[j] == 1
                 odd_ones += 1
             else
                 odd_zeros += 1
             end
-        else  # 偶数位
+        else  # Even position
             if base[j] == 1
                 even_ones += 1
             else
@@ -181,7 +181,7 @@ counts = (1, 1, 1, 1)
 amplitude = Z2_overlap(counts, π/4)
 ```
 """
-#对于｜10101010...>态，做rotation后的振幅计算,从右往左计数
+# For the |10101010...> state, calculate the amplitude after rotation, counting from right to left
 function Z2_overlap(exp::Tuple{Int64, Int64, Int64, Int64}, θ::Real)
     even_zeros, even_ones, odd_zeros, odd_ones = exp
     return sin(θ/2)^(odd_ones) * (-sin(θ/2))^even_zeros * cos(θ/2)^(even_ones+odd_zeros)
@@ -208,7 +208,6 @@ counts = (1, 1, 1, 1)
 amplitude = Z2tilde_overlap(counts, π/4)
 ```
 """
-#对于｜01010101...>态，做rotation后的振幅计算，从右往左计数
 function Z2tilde_overlap(exp::Tuple{Int64, Int64, Int64, Int64}, θ::Real)
     even_zeros, even_ones, odd_zeros, odd_ones = exp
     return sin(θ/2)^(even_ones) * (-sin(θ/2))^odd_zeros * cos(θ/2)^(even_zeros+odd_ones)
@@ -229,7 +228,7 @@ function rotated_psi_state_mss(::Type{T}, k::Int64, θ::Real, inv::Int64=1) wher
             Y = sqrt(length(k_dic[base]))/N
             Z = sqrt(qlist[i])*Y/2
             
-            # 计算基态在旋转后的振幅
+            # Calculate the amplitude of the ground state after rotation
             exp = count_zeros_and_ones(base)
             amp1 = Z2_overlap(exp, θ)
             amp2 = Z2tilde_overlap(exp, θ)
@@ -241,7 +240,7 @@ function rotated_psi_state_mss(::Type{T}, k::Int64, θ::Real, inv::Int64=1) wher
             Y = sqrt(length(k_dic[base]))/N
             Z = sqrt(qlist[i])*Y/2
             
-            # 计算基态在旋转后的振幅
+            # Calculate the amplitude of the ground state after rotation
             exp = count_zeros_and_ones(base)
             amp1 = Z2_overlap(exp, θ)
             amp2 = Z2tilde_overlap(exp, θ)
