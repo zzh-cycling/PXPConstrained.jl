@@ -8,6 +8,6 @@
 /docs/build/
 */Manifest.toml
 .DS_Store
-/docs/plans
-/docs/specs
 exm/scar_qec/data
+docs/superpowers/plans
+docs/superpowers/specs

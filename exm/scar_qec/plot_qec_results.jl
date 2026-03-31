@@ -3,7 +3,7 @@
     plot_qec_results.jl
 
 Analysis and plotting for QEC coherent information results.
-Loads scan data, computes scaling exponents, and generates summary.
+Loads scan data, computes scaling exponents, and generates PDF figures.
 
 Usage:
     julia --project=. exm/scar_qec/plot_qec_results.jl
@@ -15,18 +15,17 @@ Pkg.activate(joinpath(@__DIR__, "..", ".."))
 using JLD2
 using Printf
 using LinearAlgebra
+using Plots
+using LaTeXStrings
+
+# Set plot defaults
+default(fontfamily="Computer Modern", framestyle=:box, grid=false, 
+        legendfontsize=10, tickfontsize=10, guidefontsize=12)
 
 """
     load_and_analyze(L_values::Vector{Int})
 
 Load QEC scan results and perform scaling analysis.
-
-# Arguments
-- `L_values::Vector{Int}`: System sizes to analyze
-
-# Returns
-- `all_results::Dict`: Coherent information data for each L
-- `all_b_coeffs::Dict`: b(L) coefficients for each L
 """
 function load_and_analyze(L_values::Vector{Int})
     datadir = joinpath(@__DIR__, "data")
@@ -49,119 +48,111 @@ function load_and_analyze(L_values::Vector{Int})
         end
     end
     
-    if isempty(all_b_coeffs)
-        println("\nNo data found. Run run_qec_scan.jl first.")
-        return nothing, nothing
+    return all_results, all_b_coeffs, all_d_Q
+end
+
+"""
+    plot_coherent_info(all_results; savepath=nothing)
+
+Plot coherent information I_c(p) for all system sizes.
+"""
+function plot_coherent_info(all_results; savepath=nothing)
+    plt = plot(xlabel=L"p", ylabel=L"I_c(R \rangle Q)",
+               title="Coherent Information vs Z-Dephasing",
+               legend=:topright, size=(600, 450))
+    
+    colors = [:blue, :red, :green, :orange, :purple, :brown]
+    markers = [:circle, :square, :diamond, :utriangle, :dtriangle, :pentagon]
+    
+    L_vals = sort(collect(keys(all_results)))
+    for (i, L) in enumerate(L_vals)
+        data = all_results[L]
+        plot!(plt, data.p_values, data.I_c, 
+              label="L=$L", color=colors[mod1(i, length(colors))],
+              marker=markers[mod1(i, length(markers))], markersize=3,
+              linewidth=1.5, markerstrokewidth=0.5)
     end
     
-    # Print b(L) summary
-    println("\n" * "="^60)
-    println("b(L) Coefficient Summary (Z-dephasing)")
-    println("="^60)
-    println("L\td_Q\tb(L)")
-    println("-"^40)
-    for L in sort(collect(keys(all_b_coeffs)))
-        @printf("%d\t%d\t%.6f\n", L, all_d_Q[L], all_b_coeffs[L])
+    # Add horizontal line at I_c = 0
+    hline!(plt, [0.0], linestyle=:dash, color=:gray, label="", linewidth=1)
+    
+    # Add log(2) reference
+    hline!(plt, [log(2)], linestyle=:dot, color=:black, label=L"\log(2)", linewidth=1)
+    
+    if savepath !== nothing
+        savefig(plt, savepath)
+        println("Saved: $savepath")
     end
     
-    # Scaling analysis: b(L) = L for Z-dephasing on Néel states
-    println("\n" * "="^60)
-    println("Scaling Analysis: b(L) for Z-dephasing")
-    println("="^60)
-    println("Expected: b(L) = L (linear scaling)")
-    
-    L_vals = sort(collect(keys(all_b_coeffs)))
-    b_vals = [all_b_coeffs[L] for L in L_vals]
-    
-    # Check linear relationship b(L) = L
-    residuals = b_vals .- L_vals
-    max_residual = maximum(abs.(residuals))
-    @printf("Max deviation from b(L)=L: %.2e\n", max_residual)
-    
-    if max_residual < 1e-8
-        println("✓ Confirmed: b(L) = L exactly")
-    else
-        # Linear regression
-        n = length(L_vals)
-        x = Float64.(L_vals)
-        y = b_vals
-        slope = (n * sum(x .* y) - sum(x) * sum(y)) / (n * sum(x.^2) - sum(x)^2)
-        intercept = (sum(y) - slope * sum(x)) / n
-        @printf("Linear fit: b(L) ≈ %.4f * L + %.4f\n", slope, intercept)
-    end
-    
-    # Threshold analysis
-    println("\n" * "="^60)
-    println("Threshold Analysis: p_c where I_c → 0")
-    println("="^60)
+    return plt
+end
+
+"""
+    plot_threshold_scaling(all_results; savepath=nothing)
+
+Plot threshold p_c vs system size L.
+"""
+function plot_threshold_scaling(all_results; savepath=nothing)
+    L_vals = Int[]
+    p_c_vals = Float64[]
     
     for L in sort(collect(keys(all_results)))
         data = all_results[L]
         p_vals = data.p_values
         I_c_vals = data.I_c
         
-        # Find threshold
-        p_c = NaN
+        # Find threshold via linear interpolation
         for i in 2:length(I_c_vals)
             if I_c_vals[i-1] > 0 && I_c_vals[i] ≤ 0
-                # Linear interpolation
                 p_c = p_vals[i-1] + (p_vals[i] - p_vals[i-1]) * 
                       I_c_vals[i-1] / (I_c_vals[i-1] - I_c_vals[i])
+                push!(L_vals, L)
+                push!(p_c_vals, p_c)
                 break
             end
         end
-        
-        if isnan(p_c)
-            if all(I_c_vals .> 0)
-                @printf("L=%d: I_c > 0 for all p (robust protection)\n", L)
-            else
-                @printf("L=%d: I_c ≤ 0 for all p (no protection)\n", L)
-            end
-        else
-            @printf("L=%d: p_c ≈ %.3f\n", L, p_c)
-        end
     end
     
-    return all_results, all_b_coeffs
+    plt = plot(L_vals, p_c_vals, 
+               xlabel=L"L", ylabel=L"p_c",
+               title="Threshold vs System Size",
+               marker=:circle, markersize=6, linewidth=2,
+               color=:blue, legend=false, size=(500, 400))
+    
+    if savepath !== nothing
+        savefig(plt, savepath)
+        println("Saved: $savepath")
+    end
+    
+    return plt, L_vals, p_c_vals
 end
 
 """
-    print_ascii_plot(p_vals, I_c_vals; width=50, height=12)
+    plot_b_coefficient(all_b_coeffs; savepath=nothing)
 
-Print a simple ASCII plot of I_c(p) for visualization.
+Plot b(L) coefficient vs L showing linear scaling.
 """
-function print_ascii_plot(p_vals, I_c_vals; width=50, height=12)
-    I_max = maximum(I_c_vals)
-    I_min = min(minimum(I_c_vals), 0.0)  # Include 0 line
-    I_range = I_max - I_min
+function plot_b_coefficient(all_b_coeffs; savepath=nothing)
+    L_vals = sort(collect(keys(all_b_coeffs)))
+    b_vals = [all_b_coeffs[L] for L in L_vals]
     
-    if I_range < 1e-10
-        println("  (Constant value, cannot plot)")
-        return
+    plt = plot(L_vals, b_vals,
+               xlabel=L"L", ylabel=L"b(L)",
+               title="Knill-Laflamme Coefficient",
+               marker=:circle, markersize=6, linewidth=2,
+               color=:red, label=L"b(L)", size=(500, 400))
+    
+    # Add b(L) = L reference line
+    L_range = range(minimum(L_vals)-0.5, maximum(L_vals)+0.5, length=100)
+    plot!(plt, L_range, L_range, linestyle=:dash, color=:black, 
+          label=L"b(L) = L", linewidth=1.5)
+    
+    if savepath !== nothing
+        savefig(plt, savepath)
+        println("Saved: $savepath")
     end
     
-    for row in height:-1:0
-        I_level = I_min + (row / height) * I_range
-        line = @sprintf("%6.3f |", I_level)
-        
-        for col in 0:width-1
-            idx = 1 + round(Int, col * (length(p_vals) - 1) / (width - 1))
-            I_normalized = (I_c_vals[idx] - I_min) / I_range * height
-            
-            if abs(I_normalized - row) < 0.5
-                line *= "*"
-            elseif abs(I_level) < I_range / height / 2
-                line *= "-"  # Zero line
-            else
-                line *= " "
-            end
-        end
-        println(line)
-    end
-    
-    println("       +" * "-"^width)
-    @printf("        0%s1\n", " "^(width-2))
-    println("        " * " "^(div(width,2)-1) * "p")
+    return plt
 end
 
 """
@@ -173,24 +164,53 @@ function main()
     println("QEC Scar Code Analysis Results (Constrained Basis)")
     println("="^60)
     
-    # Try to load all available sizes
-    L_values = [6, 8, 10, 12, 14]
+    # Load data
+    L_values = [6, 8, 10, 12, 14, 16]
+    all_results, all_b_coeffs, all_d_Q = load_and_analyze(L_values)
     
-    all_results, all_b_coeffs = load_and_analyze(L_values)
-    
-    if all_results !== nothing && !isempty(all_results)
-        # Print ASCII plots for the largest system size
-        L_max = maximum(keys(all_results))
-        data = all_results[L_max]
-        
-        println("\n" * "="^60)
-        println("I_c(p) for L = $L_max (Z-dephasing)")
-        println("="^60)
-        print_ascii_plot(data.p_values, data.I_c)
+    if isempty(all_results)
+        println("\nNo data found. Run run_qec_scan.jl first.")
+        return
     end
     
+    # Print summary
     println("\n" * "="^60)
-    println("Analysis complete.")
+    println("b(L) Coefficient Summary")
+    println("="^60)
+    println("L\td_Q\tb(L)\tp_c")
+    println("-"^40)
+    
+    for L in sort(collect(keys(all_b_coeffs)))
+        data = all_results[L]
+        p_vals = data.p_values
+        I_c_vals = data.I_c
+        
+        # Find threshold
+        p_c = NaN
+        for i in 2:length(I_c_vals)
+            if I_c_vals[i-1] > 0 && I_c_vals[i] ≤ 0
+                p_c = p_vals[i-1] + (p_vals[i] - p_vals[i-1]) * 
+                      I_c_vals[i-1] / (I_c_vals[i-1] - I_c_vals[i])
+                break
+            end
+        end
+        @printf("%d\t%d\t%.1f\t%.3f\n", L, all_d_Q[L], all_b_coeffs[L], p_c)
+    end
+    
+    # Generate plots
+    figdir = joinpath(@__DIR__, "figures")
+    mkpath(figdir)
+    
+    println("\n" * "="^60)
+    println("Generating plots...")
+    println("="^60)
+    
+    plot_coherent_info(all_results; savepath=joinpath(figdir, "coherent_info_vs_p.pdf"))
+    plot_threshold_scaling(all_results; savepath=joinpath(figdir, "threshold_vs_L.pdf"))
+    plot_b_coefficient(all_b_coeffs; savepath=joinpath(figdir, "b_coefficient_vs_L.pdf"))
+    
+    println("\n" * "="^60)
+    println("Analysis complete. Figures saved to: $figdir")
     println("="^60)
 end
 
