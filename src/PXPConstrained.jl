@@ -32,10 +32,19 @@ export PXP_Ham_sparse, PXP_K_Ham_sparse, PXP_MSS_Ham_sparse, iso_total2K_sparse,
 
 export wf_time_evolution, wf_time_evolution_sparse, rotated_psi_state, rotated_psi_state_mss
 
+# QEC (Quantum Error Correction) exports - constrained basis version
+export coherent_information_constrained, apply_Z_dephasing_extended
+export prepare_scar_encoding_constrained, prepare_thermal_encoding_constrained
+export knill_laflamme_coefficient_Z, reference_code_state
+export von_neumann_entropy, partial_trace_R
+export neel_state_bitstr, build_extended_basis
+export apply_Z_dephasing_constrained
+
 include("PXPBasis.jl")
 include("PXPSymmetry.jl")
 include("Observables.jl")
 include("ScarSeparate.jl")
 include("PXPSparse.jl")
 include("Dynamics.jl")
+include("QEC.jl")
 end

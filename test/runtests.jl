@@ -21,4 +21,8 @@ end
 
 @testset "Dynamics" begin
     include("./Dynamics.jl")
+end
+
+@testset "QEC" begin
+    include("./QEC.jl")
 end 
