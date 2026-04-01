@@ -20,7 +20,7 @@ using BitBasis
 using SparseArrays, ExponentialUtilities
 using LinearAlgebra, ITensors
 
-export actingH_PXP, PXP_Ham, PXP_basis, myprint
+export actingH_PXP, PXP_Ham, PXP_basis, myprint, iso_full2cons
 
 export PXP_K_basis, PXP_MSS_basis, PXP_K_Ham, PXP_MSS_Ham,  iso_total2K, rdm_PXP, rdm_PXP_K, iso_total2MSS, iso_K2MSS, rdm_PXP_MSS,   mapstate_K2total, mapstate_MSS2K, mapstate_MSS2total
 

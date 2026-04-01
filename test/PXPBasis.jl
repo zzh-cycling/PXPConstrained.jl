@@ -80,3 +80,16 @@ end
     @test size(rdm) == (21, 21)
     @test length(PXP_basis(6, false)) == 21
 end
+
+@testset "iso_full2cons" begin
+    N = 10
+    basis = PXP_basis(N)
+    l = length(basis)
+    iso = iso_full2cons(N)
+    @test iso'*iso ≈ I(l)
+    Z2 = bit"1010101010"
+    Z2_st_cons = zeros(l); Z2_st_cons[end] = 1.0
+    Z2_st_full = zeros(2^N); 
+    Z2_st_full[Z2.buf+1] = 1
+    @test iso*Z2_st_cons ≈ Z2_st_full
+end
