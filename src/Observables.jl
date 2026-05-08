@@ -512,3 +512,326 @@ function translation_matrix(::Type{T}) where {N, T <: BitStr{N}}
     return Mat
 end
 translation_matrix(N::Int) = translation_matrix(BitStr{N, Int})
+
+"""
+    OTOC(W::Matrix{ET}, V::Matrix{ET}, psi::Vector{ET}, times::Vector{Float64}, energy::Vector{Float64}, states::Matrix{Float64}) where {ET}
+
+Calculate the out-of-time-ordered correlator (OTOC) using exact diagonalization.
+
+Computes F(t) = ⟨ψ| W† U†(t) V† U(t) W U†(t) V U(t) |ψ⟩
+where U(t) = exp(-iHt) is the time evolution operator.
+Using the eigendecomposition H = S·diag(energy)·S†, we have U(t) = S·diag(exp(-i·energy·t))·S†.
+
+# Arguments
+- `W::Matrix{ET}`: First local operator in the PXP basis
+- `V::Matrix{ET}`: Second local operator in the PXP basis
+- `psi::Vector{ET}`: Initial quantum state
+- `times::Vector{Float64}`: Time points to evaluate
+- `energy::Vector{Float64}`: Eigenvalues of the Hamiltonian
+- `states::Matrix{Float64}`: Eigenvectors of the Hamiltonian (columns)
+
+# Returns
+- `Vector{ComplexF64}`: OTOC values at each time point
+
+# Example
+```julia
+N = 10
+H = PXP_Ham(N)
+energy, states = eigen(H)
+psi = states[:, 1]  # ground state
+
+# Build local Pauli-Z at site 1 in the PXP basis
+basis = PXP_basis(N)
+W = zeros(ComplexF64, length(basis), length(basis))
+V = zeros(ComplexF64, length(basis), length(basis))
+for (idx, str) in enumerate(basis)
+    W[idx, idx] = str[N] == 0 ? 1.0 : -1.0  # Z at site 1 (rightmost bit)
+    V[idx, idx] = str[N-1] == 0 ? 1.0 : -1.0  # Z at site 2
+end
+
+times = collect(0:0.1:10)
+F = OTOC(W, V, psi, times, energy, states)
+```
+"""
+function OTOC(W::Matrix{T1}, V::Matrix{T2}, psi::Vector{T3}, times::Vector{Float64}, energy::Vector{Float64}, states::Matrix{Float64}) where {T1, T2, T3}
+    # H = states * diagm(energy) * states'
+    # U(t) = states * diagm(exp.(-1im * energy * t)) * states'
+    # U†(t) = states * diagm(exp.(1im * energy * t)) * states'
+    
+    # Precompute W† and V†
+    Wdagger = W'
+    Vdagger = V'
+    
+    # Transform operators to energy eigenbasis: Õ = S† · O · S
+    # This makes time evolution trivial: U(t) = diag(exp(-i·energy·t))
+    W_eig = states' * W * states
+    V_eig = states' * V * states
+    Wdagger_eig = states' * Wdagger * states
+    Vdagger_eig = states' * Vdagger * states
+    
+    # Transform initial state to energy eigenbasis
+    psi_eig = states' * psi
+    
+    otoc_values = zeros(ComplexF64, length(times))
+    
+    for (i, t) in enumerate(times)
+        # U(t) in eigenbasis is diagonal
+        exp_factors = exp.(-1im * t * energy)
+        exp_factors_dag = exp.(1im * t * energy)
+        
+        # U(t) |ψ⟩ in eigenbasis
+        psi_t = psi_eig .* exp_factors
+        
+        # V · U(t) |ψ⟩ in eigenbasis
+        psi_v = V_eig * psi_t
+        
+        # U†(t) · V · U(t) |ψ⟩ in eigenbasis
+        psi_v_ut = psi_v .* exp_factors_dag
+        
+        # W · U†(t) · V · U(t) |ψ⟩ in eigenbasis
+        psi_w_v_ut = W_eig * psi_v_ut
+        
+        # U(t) · W · U†(t) · V · U(t) |ψ⟩ in eigenbasis
+        psi_u_w_v_ut = psi_w_v_ut .* exp_factors
+        
+        # V† · U(t) · W · U†(t) · V · U(t) |ψ⟩ in eigenbasis
+        psi_v_u_w_v_ut = Vdagger_eig * psi_u_w_v_ut
+        
+        # U†(t) · V† · U(t) · W · U†(t) · V · U(t) |ψ⟩ in eigenbasis
+        psi_ut_v_u_w_v_ut = psi_v_u_w_v_ut .* exp_factors_dag
+        
+        # W† · U†(t) · V† · U(t) · W · U†(t) · V · U(t) |ψ⟩ in eigenbasis
+        psi_w_ut_v_u_w_v_ut = Wdagger_eig * psi_ut_v_u_w_v_ut
+        
+        # Finally compute ⟨ψ| · (full operator chain) |ψ⟩
+        otoc_values[i] = dot(psi_eig, psi_w_ut_v_u_w_v_ut)
+    end
+    
+    return otoc_values
+end
+
+"""
+    apply_operator_map(basis::Vector{T}, op_map::Function, state::Vector{ET}) where {N, T <: BitStr{N}, ET}
+
+Apply an operator represented as a mapping function to a state vector.
+
+The operator map takes a basis state and returns a list of (output_state, amplitude) pairs.
+This is efficient for sparse operators like Pauli-X or Pauli-Z in the PXP basis.
+
+# Arguments
+- `basis::Vector{T}`: PXP basis states (sorted)
+- `op_map::Function`: Function that maps a basis state to Vector{Tuple{T, ET}} of (output_state, amplitude)
+- `state::Vector{ET}`: Input state vector
+
+# Returns
+- `Vector{ET}`: Output state after applying the operator
+"""
+function apply_operator_map(basis::Vector{T}, op_map::Function, state::Vector{ET}) where {N, T <: BitStr{N}, ET}
+    result = zeros(ET, length(basis))
+    for (idx, str) in enumerate(basis)
+        if iszero(state[idx])
+            continue
+        end
+        outputs = op_map(str)
+        for (out_str, amp) in outputs
+            j = searchsortedfirst(basis, out_str)
+            if j > length(basis) || basis[j] != out_str
+                continue
+            end
+            result[j] += amp * state[idx]
+        end
+    end
+    return result
+end
+
+"""
+    Z_map(::Type{T}, i::Int64) where {N, T <: BitStr{N}}
+    Z_map(N::Int64, i::Int64)
+
+Create a Pauli-Z operator at site i as a mapping function for the PXP basis.
+
+Z_i |...n_i...⟩ = (1 - 2*n_i) |...n_i...⟩ = ±1 * |...n_i...⟩
+where n_i ∈ {0,1} is the occupation at site i.
+
+Site index i counts from the left (1-based), consistent with the physical convention.
+
+# Arguments
+- `T::Type{BitStr{N}}` or `N::Int64`: System size specification
+- `i::Int64`: Site index (1-based, counting from left)
+
+# Returns
+- `Function`: A function that maps a basis state `str` to Vector{Tuple{T, Float64}} pairs
+
+# Example
+```julia
+N = 8
+basis = PXP_basis(N)
+Z1 = Z_map(N, 1)
+# Apply to a state: Z1(str) returns [(str, ±1.0)]
+```
+"""
+function Z_map(::Type{T}, i::Int64) where {N, T <: BitStr{N}}
+    # Site i counts from the left (1-based)
+    # In BitBasis, bit N+1-i corresponds to site i from the left
+    bit_idx = N + 1 - i
+    
+    function op_map(str::T)
+        # Z_i flips sign based on bit value: Z|0⟩ = +|0⟩, Z|1⟩ = -|1⟩
+        amp = str[bit_idx] == 0 ? 1.0 : -1.0
+        return [(str, amp)]
+    end
+    
+    return op_map
+end
+Z_map(N::Int64, i::Int64) = Z_map(BitStr{N, Int}, i)
+
+"""
+    X_map(::Type{T}, i::Int64) where {N, T <: BitStr{N}}
+    X_map(N::Int64, i::Int64)
+
+Create a Pauli-X operator at site i as a mapping function for the PXP basis.
+
+X_i |...n_i...⟩ = flip the bit at site i.
+If the flipped state is not in the PXP basis, it contributes 0 (handled by searchsortedfirst).
+
+Site index i counts from the left (1-based), consistent with the physical convention.
+The implementation follows the style: `fl = bmask(T, N); flip(state, fl >> (i-1))`.
+
+# Arguments
+- `T::Type{BitStr{N}}` or `N::Int64`: System size specification
+- `i::Int64`: Site index (1-based, counting from left)
+
+# Returns
+- `Function`: A function that maps a basis state `str` to Vector{Tuple{T, Float64}} pairs
+
+# Example
+```julia
+N = 8
+basis = PXP_basis(N)
+X1 = X_map(N, 1)
+# Apply to a state: X1(str) returns [(flipped_str, 1.0)]
+```
+"""
+function X_map(::Type{T}, i::Int64) where {N, T <: BitStr{N}}
+    # Site i counts from the left (1-based)
+    # fl = bmask(T, N) creates mask for the leftmost bit (site 1)
+    # fl >> (i-1) shifts to site i
+    fl = bmask(T, N)
+    mask = fl >> (i - 1)
+    
+    function op_map(str::T)
+        flipped = flip(str, mask)
+        return [(flipped, 1.0)]
+    end
+    
+    return op_map
+end
+X_map(N::Int64, i::Int64) = X_map(BitStr{N, Int}, i)
+
+"""
+    OTOC_map(W_map::Function, V_map::Function, psi::Vector{ET}, times::Vector{Float64}, energy::Vector{Float64}, states::Matrix{Float64}, basis::Vector{T}) where {N, T <: BitStr{N}, ET}
+
+Calculate the out-of-time-ordered correlator (OTOC) using exact diagonalization
+with operator mapping functions instead of dense matrices.
+
+Computes F(t) = ⟨ψ| W† U†(t) V† U(t) W U†(t) V U(t) |ψ⟩
+where U(t) = exp(-iHt) is the time evolution operator.
+
+This version uses sparse operator representations via mapping functions,
+which is much more memory-efficient for large systems.
+
+# Arguments
+- `W_map::Function`: Mapping function for operator W, see `X_map` or `Z_map`
+- `V_map::Function`: Mapping function for operator V
+- `psi::Vector{ET}`: Initial quantum state
+- `times::Vector{Float64}`: Time points to evaluate
+- `energy::Vector{Float64}`: Eigenvalues of the Hamiltonian
+- `states::Matrix{Float64}`: Eigenvectors of the Hamiltonian (columns)
+- `basis::Vector{T}`: PXP basis states (sorted)
+
+# Returns
+- `Vector{ComplexF64}`: OTOC values at each time point
+
+# Example
+```julia
+N = 10
+H = PXP_Ham(N)
+energy, states = eigen(H)
+psi = states[:, 1]  # ground state
+basis = PXP_basis(N)
+
+# W = X at site 1, V = Z at site 2
+W = X_map(N, 1)
+V = Z_map(N, 2)
+
+times = collect(0:0.1:10)
+F = OTOC_map(W, V, psi, times, energy, states, basis)
+```
+"""
+function OTOC_map(W_map::Function, V_map::Function, psi::Vector{ET}, times::Vector{Float64}, energy::Vector{Float64}, states::Matrix{Float64}, basis::Vector{T}) where {N, T <: BitStr{N}, ET}
+    # Transform initial state to energy eigenbasis
+    psi_eig = states' * psi
+    
+    # Precompute operator matrix elements in energy eigenbasis
+    # W_{mn} = ⟨m|W|n⟩ where |m⟩, |n⟩ are energy eigenstates
+    dim = length(energy)
+    
+    W_eig = zeros(ComplexF64, dim, dim)
+    V_eig = zeros(ComplexF64, dim, dim)
+    
+    for n in 1:dim
+        # |n⟩ in PXP basis
+        state_n = states[:, n]
+        
+        # W|n⟩ in PXP basis
+        W_state_n = apply_operator_map(basis, W_map, state_n)
+        V_state_n = apply_operator_map(basis, V_map, state_n)
+        
+        # ⟨m|W|n⟩ = states[:, m]' * W_state_n
+        for m in 1:dim
+            W_eig[m, n] = dot(states[:, m], W_state_n)
+            V_eig[m, n] = dot(states[:, m], V_state_n)
+        end
+    end
+    
+    # For Hermitian operators like X, Z: W† = W, V† = V
+    Wdagger_eig = W_eig'
+    Vdagger_eig = V_eig'
+    
+    otoc_values = zeros(ComplexF64, length(times))
+    
+    for (i, t) in enumerate(times)
+        # U(t) in eigenbasis is diagonal
+        exp_factors = exp.(-1im * t * energy)
+        exp_factors_dag = exp.(1im * t * energy)
+        
+        # U(t) |ψ⟩ in eigenbasis
+        psi_t = psi_eig .* exp_factors
+        
+        # V · U(t) |ψ⟩ in eigenbasis
+        psi_v = V_eig * psi_t
+        
+        # U†(t) · V · U(t) |ψ⟩ in eigenbasis
+        psi_v_ut = psi_v .* exp_factors_dag
+        
+        # W · U†(t) · V · U(t) |ψ⟩ in eigenbasis
+        psi_w_v_ut = W_eig * psi_v_ut
+        
+        # U(t) · W · U†(t) · V · U(t) |ψ⟩ in eigenbasis
+        psi_u_w_v_ut = psi_w_v_ut .* exp_factors
+        
+        # V† · U(t) · W · U†(t) · V · U(t) |ψ⟩ in eigenbasis
+        psi_v_u_w_v_ut = Vdagger_eig * psi_u_w_v_ut
+        
+        # U†(t) · V† · U(t) · W · U†(t) · V · U(t) |ψ⟩ in eigenbasis
+        psi_ut_v_u_w_v_ut = psi_v_u_w_v_ut .* exp_factors_dag
+        
+        # W† · U†(t) · V† · U(t) · W · U†(t) · V · U(t) |ψ⟩ in eigenbasis
+        psi_w_ut_v_u_w_v_ut = Wdagger_eig * psi_ut_v_u_w_v_ut
+        
+        # Finally compute ⟨ψ| · (full operator chain) |ψ⟩
+        otoc_values[i] = dot(psi_eig, psi_w_ut_v_u_w_v_ut)
+    end
+    
+    return otoc_values
+end

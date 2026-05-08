@@ -408,21 +408,22 @@ function myprint(io::IO, xs...)
 end
 
 """
-    iso_full2cons(::Type{T}) where {N, T <: BitStr{N}}
+    iso_full2cons(::Type{T}, pbc::Bool) where {N, T <: BitStr{N}}
     
     Construct the isometry matrix from the full Hilbert space to the constrained PXP basis.
     This function creates a mapping matrix that projects states from the full 2^N-dimensional Hilbert space onto the subspace defined by the PXP constraints, where only valid configurations are retained.
 # Arguments
 - `T::Type{BitStr{N}}`: Bit string type specifying system size N
+- `pbc::Bool`: Whether to use periodic boundary conditions for generating the constrained basis
 # Returns
 - `Matrix{Int64}`: Isometry matrix mapping full Hilbert space to constrained PXP basis
 # Example
 ```julia
-iso_matrix = iso_full2cons(BitStr{6, Int})
+iso_matrix = iso_full2cons(BitStr{6, Int}, true)
 ```
 """
-function iso_full2cons(::Type{T}) where {N, T <: BitStr{N}}
-    basis = PXP_basis(T, true)
+function iso_full2cons(::Type{T}, pbc::Bool) where {N, T <: BitStr{N}}
+    basis = PXP_basis(T, pbc)
     l = length(basis)
     map_matrix = zeros(Int64, (2^N, l))
     for i in 1:l
@@ -431,4 +432,4 @@ function iso_full2cons(::Type{T}) where {N, T <: BitStr{N}}
     end
     return map_matrix
 end
-iso_full2cons(N::Int) = iso_full2cons(BitStr{N, Int})
+iso_full2cons(N::Int, pbc::Bool) = iso_full2cons(BitStr{N, Int}, pbc)
