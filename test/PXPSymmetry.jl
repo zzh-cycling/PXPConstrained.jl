@@ -258,6 +258,36 @@ end
     @test findall(x -> isapprox(x,0,atol=1e-10), eigvals(hmss))==[]
 end
 
+@testset "iso_K2MSS, K=π,I=-1" begin
+    L=12
+    Hkπ = PXP_K_Ham(L, div(L,2))
+    iso1 = iso_K2MSS(L, div(L,2), 1)
+    iso2 = iso_K2MSS(L, div(L,2), -1)
+    HMSS1 = iso1'*Hkπ*iso1
+    HMSS2 = iso2'*Hkπ*iso2
+
+    L=16
+    Hk0 = PXP_K_Ham(L, 0)
+    Hkπ = PXP_K_Ham(L, div(L,2))
+
+    iso1 = iso_K2MSS(L, 0, 1)
+    iso2 = iso_K2MSS(L, 0, -1)
+    iso3 = iso_K2MSS(L, div(L,2), 1)
+    iso4 = iso_K2MSS(L, div(L,2), -1)
+
+    HMSS1 = iso1'*Hk0*iso1
+    HMSS2 = iso2'*Hk0*iso2
+    HMSS3 = iso3'*Hkπ*iso3
+    HMSS4 = iso4'*Hkπ*iso4
+
+    @test HMSS1 ≈ PXP_MSS_Ham(L, 0, 1)
+    @test HMSS2 ≈ PXP_MSS_Ham(L, 0, -1)
+    @test HMSS3 ≈ PXP_MSS_Ham(L, div(L,2), 1)
+    @test HMSS4 ≈ PXP_MSS_Ham(L, div(L,2), -1)
+    @test size(Hk0)[1]  == size(HMSS1)[1] + size(HMSS2)[1]
+    @test size(Hkπ)[1] == size(HMSS3)[1] + size(HMSS4)[1]
+end
+
 @testset "iso, reduced density matrix and map" begin
     N=12
 

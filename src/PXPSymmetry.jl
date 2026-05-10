@@ -183,56 +183,80 @@ MSS_Ham = W_MSS' * PXP_K_Ham(10, 0) * W_MSS  # Project Hamiltonian to MSS subspa
 ```
 """
 function iso_K2MSS(::Type{T}, k::Int64, inv::Int64=1) where {N, T <: BitStr{N}}
-#Function to map the MSS basis to the K space basis
-    @assert k == 0 || k==div(N,2) "k is expected to be 0 or $(div(N,2)), but got $k"
-    @assert inv ==1 || inv==-1 "inv is expected to be 1 or -1, but got $(inv)"
-    basisK, k_dic = PXP_K_basis(T, k)
+     # Only k=0 and k=pi(=N/2) are allowed for MSS construction.
+     @assert k == 0 || k == div(N, 2) "k is expected to be 0 or $(div(N,2)),but got $k"
+     # Inversion eigenvalue must be +1 (even) or -1 (odd).
+     @assert inv == 1 || inv == -1 "inv is expected to be 1 or -1, but got $inv"
+     
+     # K-sector basis and orbit dictionary.
+     basisK, k_dic = PXP_K_basis(T, k)
+     nK = length(basisK)
+     
+     # Map each inversion representative -> indices in K basis.
+     rep_dict = Dict{T, Vector{Int64}}()
+     
+     for i in 1:nK
+         n = basisK[i]
+         nR = get_representative(breflect(n))[1]  # inversion-related representative
+         if inv == 1
+             # Even inversion sector: keep both self-inversion and paired states.
+             rep = min(n, nR)
+             if haskey(rep_dict, rep)
+                 push!(rep_dict[rep], i)
+             else
+                 rep_dict[rep] = [i]
+             end
+         else 
+             # Odd inversion sector: only paired states contribute (n != nR).
+             if n != nR
+                 rep = min(n, nR)
+                 if haskey(rep_dict, rep)
+                     push!(rep_dict[rep], i)
+                 else
+                     rep_dict[rep] = [i]
+                 end
+             end
+         end
+     end
 
-    MSS_dic = Dict{Int, Vector{Int64}}()
-    # MSS_dic is a dictionary, the key is the representative state of the inversion of n, and the value is the index of the state in the basisK. NOTE that MSS_dic is not sorted, so we need to sort it later.
-    qlist = Vector{Int}(undef, 0)
-    # Below procedure is to collapse the extra basis in K space that can be converted mutually to MSS space.
-    if inv==1 && k==0 || inv==-1 && k==div(N,2)
-        for i in eachindex(basisK)
-            n = basisK[i]
-            # here we calculate the representative state of the inversion of n
-            nR = get_representative(breflect(n))[1]
-            # For example, n = 41, nR=37, then we only need to keep n=37, and n=41 will be removed.
-            if n <= min(nR, n)
-                push!(qlist, length(Set([n, nR])))
-            end
-            n = min(nR, n)
-                if haskey(MSS_dic, n)
-                    push!(MSS_dic[n], i)
-                else
-                    MSS_dic[n] = [i]
-                end
-        end
-
-    else
-        for i in eachindex(basisK)
-            n = basisK[i]
-            nR = get_representative(breflect(n))[1]
-            if n != nR
-                n = min(nR, n)
-                if haskey(MSS_dic, n)
-                    push!(MSS_dic[n], i)
-                else
-                    MSS_dic[n] = [i]
-                end
-                push!(qlist, 2)
-            end     
-        end    
-    end
-
-    iso = zeros((length(basisK), length(MSS_dic)))
-    MSS_dic=sort(MSS_dic)
-    for (i, state_index) in enumerate(values(MSS_dic))
-        iso[state_index, i] .= 1/sqrt(qlist[i])
-    end
-
-    return iso
-end
+     # Sorted MSS representatives define MSS basis ordering.
+     reps = sort(collect(keys(rep_dict)))
+     nMSS = length(reps)
+     
+     # Isometry: columns are MSS basis vectors in K basis coordinates.
+     iso = zeros(nK, nMSS)
+     
+     for (col, rep) in enumerate(reps)
+         indices = rep_dict[rep]
+         
+         if inv == 1
+             # Even sector:
+             # - single index: self-inversion state -> weight 1
+             # - two indices: symmetric combination (|n> + |nR>)/sqrt(2)
+             if length(indices) == 1
+                 iso[indices[1], col] = 1.0
+             elseif length(indices) == 2
+                 iso[indices[1], col] = 1/sqrt(2)
+                 iso[indices[2], col] = 1/sqrt(2)
+             end
+             
+         else
+             # Odd sector requires exactly a pair: antisymmetric combination. 
+             idx1, idx2 = indices[1], indices[2]
+             n1, n2 = basisK[idx1], basisK[idx2]
+             # Fix sign convention so basis is deterministic w.r.t representative ordering.
+             if n1 == rep
+                 iso[idx1, col] = +1/sqrt(2)
+                 iso[idx2, col] = -1/sqrt(2)
+             else
+                 iso[idx1, col] = -1/sqrt(2)
+                 iso[idx2, col] = +1/sqrt(2)
+             end
+         end
+     end
+     
+     return iso
+ end
 iso_K2MSS(N::Int, k::Int64, inv::Int64=1) = iso_K2MSS(BitStr{N, Int}, k, inv)
 
 """
@@ -537,9 +561,12 @@ function PXP_MSS_Ham(::Type{T}, k::Int, inv::Int64=1) where {N, T <: BitStr{N}}
             output = actingH_PXP(T, n, true)
             for m in output
                 mbar, d = get_representative(m)
-                if mbar ∈ MSS
-                    j=searchsortedfirst(MSS, mbar)
-                    Zm = sqrt(length(MSS_dic[mbar]))
+                inv_mbar = get_representative(breflect(mbar))[1]
+                mtilde = min(mbar, inv_mbar)
+                @show m.buf, mbar.buf, inv_mbar.buf, mtilde.buf
+                if mtilde ∈ MSS
+                    j=searchsortedfirst(MSS, mtilde)
+                    Zm = sqrt(length(MSS_dic[mtilde]))
                     H[i, j] +=  Zn / Zm*omegak^d
                 end
             end

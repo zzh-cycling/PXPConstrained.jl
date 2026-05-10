@@ -68,6 +68,12 @@ end
     @test u'*u ≈ I(size(u, 2))
     @test Matrix(u) ≈ iso_K2MSS(12, 6)
 
+    u = iso_K2MSS_sparse(12, 6, -1)
+    P=u*u'
+    @test isapprox(P*P, P, atol=1e-10)
+    @test u'*u ≈ I(size(u, 2))
+    @test Matrix(u) ≈ iso_K2MSS(12, 6, -1)
+
     u = iso_K2MSS_sparse(12, 0)
     P=u*u'
     @test isapprox(P*P, P, atol=1e-10)
@@ -96,5 +102,4 @@ end
     @test u'*u ≈ I(size(u, 2))
     @test Matrix(u) ≈ iso_total2MSS(14, 0, -1)
 end
-
 

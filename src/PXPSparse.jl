@@ -247,71 +247,69 @@ iso_total2K_sparse(N::Int, k::Int64) = iso_total2K_sparse(BitStr{N, Int}, k)
 
 
 function iso_K2MSS_sparse(::Type{T}, k::Int64, inv::Int64=1) where {N, T <: BitStr{N}}
-#Function to map the MSS basis to the K space basis
-    @assert k == 0 || k==div(N,2) "k is expected to be 0 or $(div(N,2)), but got $k"
-    @assert inv ==1 || inv==-1 "inv is expected to be 1 or -1, but got $(inv)"
+    # Function to map the MSS basis to the K space basis.
+    @assert k == 0 || k == div(N, 2) "k is expected to be 0 or $(div(N,2)), but got $k"
+    @assert inv == 1 || inv == -1 "inv is expected to be 1 or -1, but got $inv"
 
-    basis = PXP_basis(T)
-    basisK, k_dic = PXP_K_basis(T, k)
+    basisK, _ = PXP_K_basis(T, k)
+    nK = length(basisK)
 
-    MSS_dic = Dict{Int, Vector{Int64}}()
-    qlist = Vector{Int}(undef, 0)
-    # Below procedure is to collapse the extra basis in K space that can be converted mutually to MSS space.
-    if inv==1 && k==0 || k==div(N,2) && inv==-1
-        for i in eachindex(basisK)
-            n = basisK[i]
-            # here we calculate the representative state of the inversion of n
-            nR = get_representative(breflect(n))[1]
-            if n <= min(nR, n)
-                push!(qlist, length(Set([n, nR])))
-            end
-            n = min(nR, n)
-            if haskey(MSS_dic, n)
-                push!(MSS_dic[n], i)
+    # Map each inversion representative to the corresponding K-basis indices.
+    rep_dict = Dict{T, Vector{Int64}}()
+    for i in 1:nK
+        n = basisK[i]
+        nR = get_representative(breflect(n))[1]
+        if inv == 1
+            rep = min(n, nR)
+            if haskey(rep_dict, rep)
+                push!(rep_dict[rep], i)
             else
-                MSS_dic[n] = [i]
+                rep_dict[rep] = [i]
+            end
+        else
+            if n != nR
+                rep = min(n, nR)
+                if haskey(rep_dict, rep)
+                    push!(rep_dict[rep], i)
+                else
+                    rep_dict[rep] = [i]
+                end
             end
         end
+    end
 
-    elseif inv==1 && k==div(N,2) || inv==-1 && k==0
-        for i in eachindex(basisK)
-            n = basisK[i]
-            nR = get_representative(breflect(n))[1]
-            if n != nR
-                n = min(nR, n)
-                if haskey(MSS_dic, n)
-                    push!(MSS_dic[n], i)
-                else
-                    MSS_dic[n] = [i]
-                end
-                push!(qlist, 2)
+    reps = sort(collect(keys(rep_dict)))
+    nMSS = length(reps)
+
+    I = Int[]
+    J = Int[]
+    V = Float64[]
+
+    for (col, rep) in enumerate(reps)
+        indices = rep_dict[rep]
+        if inv == 1
+            if length(indices) == 1
+                push!(I, indices[1]); push!(J, col); push!(V, 1.0)
+            elseif length(indices) == 2
+                push!(I, indices[1]); push!(J, col); push!(V, 1 / sqrt(2))
+                push!(I, indices[2]); push!(J, col); push!(V, 1 / sqrt(2))
             end
-        end    
-        
-    
+        else
+            @assert length(indices) == 2 "I=-1 sector: expected 2 indices, got $(length(indices))"
+
+            idx1, idx2 = indices[1], indices[2]
+            n1 = basisK[idx1]
+            if n1 == rep
+                push!(I, idx1); push!(J, col); push!(V, 1 / sqrt(2))
+                push!(I, idx2); push!(J, col); push!(V, -1 / sqrt(2))
+            else
+                push!(I, idx1); push!(J, col); push!(V, -1 / sqrt(2))
+                push!(I, idx2); push!(J, col); push!(V, 1 / sqrt(2))
+            end
+        end
     end
 
-    num_states = length(basisK)
-    num_categories = length(keys(MSS_dic))
-    rows = Vector{Int64}[]
-    cols = Vector{Int64}[]
-    vals = Vector{Float64}[]
-
-    MSS_dic=sort(MSS_dic)
-    for (i, state_indices) in enumerate(values(MSS_dic))
-        l = qlist[i]
-        push!(rows, state_indices)
-        push!(cols, fill(i, l))
-        push!(vals, fill(1.0 / sqrt(l), l))
-    end
-
-    rows = vcat(rows...)
-    cols = vcat(cols...)
-    vals = vcat(vals...)
-
-    iso_sparse = sparse(rows, cols, vals, num_states, num_categories)
-
-    return iso_sparse
+    return sparse(I, J, V, nK, nMSS)
 end
 iso_K2MSS_sparse(N::Int, k::Int64, inv::Int64=1) = iso_K2MSS_sparse(BitStr{N, Int}, k, inv)
 
@@ -322,6 +320,5 @@ function iso_total2MSS_sparse(::Type{T}, k::Int64, inv::Int64=1) where {N, T <: 
     return iso
 end
 iso_total2MSS_sparse(N::Int, k::Int64, inv::Int64=1) = iso_total2MSS_sparse(BitStr{N, Int}, k, inv)
-
 
 
