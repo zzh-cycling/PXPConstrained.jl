@@ -187,28 +187,18 @@ function iso_K2MSS(::Type{T}, k::Int64, inv::Int64=1) where {N, T <: BitStr{N}}
      @assert k == 0 || k == div(N, 2) "k is expected to be 0 or $(div(N,2)),but got $k"
      # Inversion eigenvalue must be +1 (even) or -1 (odd).
      @assert inv == 1 || inv == -1 "inv is expected to be 1 or -1, but got $inv"
-     
-     # K-sector basis and orbit dictionary.
-     basisK, k_dic = PXP_K_basis(T, k)
+
+     basisK, basis_dic = PXP_K_basis(T, k)
      nK = length(basisK)
-     
-     # Map each inversion representative -> indices in K basis.
-     rep_dict = Dict{T, Vector{Int64}}()
-     
-     for i in 1:nK
-         n = basisK[i]
-         nR = get_representative(breflect(n))[1]  # inversion-related representative
-         if inv == 1
-             # Even inversion sector: keep both self-inversion and paired states.
-             rep = min(n, nR)
-             if haskey(rep_dict, rep)
-                 push!(rep_dict[rep], i)
-             else
-                 rep_dict[rep] = [i]
-             end
-         else 
-             # Odd inversion sector: only paired states contribute (n != nR).
-             if n != nR
+
+     # k=0: reflection carries no momentum phase and the representative-pair
+     # construction gives an explicit deterministic basis.
+     if k == 0
+         rep_dict = Dict{T, Vector{Int64}}()
+         for i in 1:nK
+             n = basisK[i]
+             nR = get_representative(breflect(n))[1]
+             if inv == 1 || n != nR
                  rep = min(n, nR)
                  if haskey(rep_dict, rep)
                      push!(rep_dict[rep], i)
@@ -217,46 +207,58 @@ function iso_K2MSS(::Type{T}, k::Int64, inv::Int64=1) where {N, T <: BitStr{N}}
                  end
              end
          end
-     end
 
-     # Sorted MSS representatives define MSS basis ordering.
-     reps = sort(collect(keys(rep_dict)))
-     nMSS = length(reps)
-     
-     # Isometry: columns are MSS basis vectors in K basis coordinates.
-     iso = zeros(nK, nMSS)
-     
-     for (col, rep) in enumerate(reps)
-         indices = rep_dict[rep]
-         
-         if inv == 1
-             # Even sector:
-             # - single index: self-inversion state -> weight 1
-             # - two indices: symmetric combination (|n> + |nR>)/sqrt(2)
-             if length(indices) == 1
-                 iso[indices[1], col] = 1.0
-             elseif length(indices) == 2
-                 iso[indices[1], col] = 1/sqrt(2)
-                 iso[indices[2], col] = 1/sqrt(2)
-             end
-             
-         else
-             # Odd sector requires exactly a pair: antisymmetric combination. 
-             idx1, idx2 = indices[1], indices[2]
-             n1, n2 = basisK[idx1], basisK[idx2]
-             # Fix sign convention so basis is deterministic w.r.t representative ordering.
-             if n1 == rep
-                 iso[idx1, col] = +1/sqrt(2)
-                 iso[idx2, col] = -1/sqrt(2)
+         reps = sort(collect(keys(rep_dict)))
+         nMSS = length(reps)
+         iso = zeros(nK, nMSS)
+
+         for (col, rep) in enumerate(reps)
+             indices = rep_dict[rep]
+             if inv == 1
+                 if length(indices) == 1
+                     iso[indices[1], col] = 1.0
+                 elseif length(indices) == 2
+                     iso[indices[1], col] = 1 / sqrt(2)
+                     iso[indices[2], col] = 1 / sqrt(2)
+                 end
              else
-                 iso[idx1, col] = -1/sqrt(2)
-                 iso[idx2, col] = +1/sqrt(2)
+                 @assert length(indices) == 2 "I=-1 sector: expected 2 indices, got $(length(indices))"
+                 idx1, idx2 = indices[1], indices[2]
+                 if basisK[idx1] == rep
+                     iso[idx1, col] = 1 / sqrt(2)
+                     iso[idx2, col] = -1 / sqrt(2)
+                 else
+                     iso[idx1, col] = -1 / sqrt(2)
+                     iso[idx2, col] = 1 / sqrt(2)
+                 end
              end
          end
+         return iso
      end
-     
-     return iso
- end
+
+     # k=pi: reflection picks up a state-dependent phase omega_k^dR.
+     # Build the exact reflection operator in K basis and project to its ±1 eigenspaces.
+     omegak = exp(2im * π * k / N)
+     Ik = zeros(ComplexF64, nK, nK)
+     k_index = Dict{T, Int}()
+     for (i, st) in enumerate(basisK)
+         k_index[st] = i
+     end
+
+     for i in 1:nK
+         n = basisK[i]
+         nR, dR = get_representative(breflect(n))
+         j = get(k_index, nR, 0)
+         j == 0 && continue
+         Yn = sqrt(length(basis_dic[n])) / N
+         YR = sqrt(length(basis_dic[nR])) / N
+         Ik[j, i] += Yn / YR * omegak^dR
+     end
+
+     vals, vecs = eigen(Hermitian((Ik + Ik') / 2))
+     idx = findall(x -> isapprox(x, inv, atol=1e-8), vals)
+     return real(vecs[:, idx])
+  end
 iso_K2MSS(N::Int, k::Int64, inv::Int64=1) = iso_K2MSS(BitStr{N, Int}, k, inv)
 
 """
