@@ -444,36 +444,26 @@ function PXP_MSS_basis(::Type{T}, k::Int64,inv::Int64=1) where {N, T <: BitStr{N
 
     # q is the number of states that are equivalent under inversion
     qlist = Vector{Int}(undef, 0)
-    if inv==1 && k==0 || inv==-1 && k==div(N,2)
-        for i in eachindex(basisK)
-            n = basisK[i]
-            # here we calculate the representative state of the inversion of n
-            nR = get_representative(breflect(n))[1]
-            if n <= min(nR, n)
-                push!(MSS, n)
-                MSS_dic[n] = basis_dic[n]
-                push!(qlist, length(Set([n, nR])))
-            end
+    
+    for i in eachindex(basisK)
+        n = basisK[i]
+        # here we calculate the representative state of the inversion of n
+        nR = get_representative(breflect(n))[1]
+        if n <= min(nR, n)
+            push!(MSS, n)
+            MSS_dic[n] = basis_dic[n]
+            push!(qlist, length(Set([n, nR])))
         end
-
-        return MSS, MSS_dic, qlist
-        
-    elseif inv==1 && k==div(N,2) || inv==-1 && k==0
-        for i in eachindex(basisK)
-                n = basisK[i]
-                nR = get_representative(breflect(n))[1]
-                if n <= min(nR, n)
-                    push!(MSS, n)
-                    MSS_dic[n] = basis_dic[n]
-                    push!(qlist, length(Set([n, nR])))
-                end
-        end    
-            index=findall(x -> x==2, qlist)
-            new_MSS_dic = Dict(k => v for k in MSS[index] for v in [MSS_dic[k]])
-            return MSS[index], new_MSS_dic, qlist
     end
-          
+    
+    if inv==-1
+        index=findall(x -> x==2, qlist)
+        MSS = MSS[index]
+        MSS_dic = Dict(k => v for k in MSS for v in [MSS_dic[k]])
+    end   
+    return MSS, MSS_dic, qlist
 end
+
 PXP_MSS_basis(N::Int, k::Int64, inv::Int64=1) = PXP_MSS_basis(BitStr{N, Int}, k, inv)
 
 function PXP_K_Ham(::Type{T}, k::Int, Omega::Float64=1.0) where {N, T <: BitStr{N}}
@@ -516,14 +506,16 @@ function PXP_MSS_Ham(::Type{T}, k::Int, inv::Int64=1) where {N, T <: BitStr{N}}
 
     omegak = exp(2im * π * k / N)
     
-    if inv==1 && k==0 || inv==-1 && k==div(N,2)
-        MSS, MSS_dic, qlist = PXP_MSS_basis(T, k, inv)
+    MSS, MSS_dic, qlist = PXP_MSS_basis(T, k, inv)
+    l = length(MSS)
+    H = zeros(ComplexF64, (l, l))
 
-        l = length(MSS)
-        H = zeros(ComplexF64, (l, l))
+    if inv==1
+    
         for i in 1:l
             n = MSS[i]
-            Zn = sqrt(qlist[i]) / 4 * sqrt(length(MSS_dic[n])) / N
+            Zn = sqrt(qlist[i]) * sqrt(length(MSS_dic[n]))
+            # Zn is the normalization factor for the state n in MSS, which is the square root of the number of states in K space that are equivalent to n under inversion, multiplied by the square root of the number of states in MSS that are equivalent to n under inversion. This is because when we map from K space to MSS space, we need to sum over all the states in K space that are equivalent to n under inversion, and each state in K space has a normalization factor of 1/sqrt(length(basis_dic[n])), and there are length(MSS_dic[n]) states in MSS that are equivalent to n under inversion, so we need to multiply by sqrt(length(MSS_dic[n])) to get the correct normalization factor for the state n in MSS.
             output = actingH_PXP(T, n, true)
             for m in output
                 mbar, d = get_representative(m)
@@ -531,38 +523,32 @@ function PXP_MSS_Ham(::Type{T}, k::Int, inv::Int64=1) where {N, T <: BitStr{N}}
                 mtilde = min(mbar, inv_mbar)
                 if mtilde ∈ MSS
                     j = searchsortedfirst(MSS, mtilde)
-                    Zm = sqrt(qlist[j]) / 4 * sqrt(length(MSS_dic[mtilde])) / N
+                    Zm = sqrt(qlist[j]) * sqrt(length(MSS_dic[mtilde])) 
                     H[i, j] +=  Zn / Zm*omegak^d
                 end
             end
         end
-        H=real(H)
-        H = (H + H') / 2
 
-        return H
-    elseif inv==1 && k==div(N,2) || inv==-1 && k==0
-        MSS, MSS_dic, _ = PXP_MSS_basis(T, k, inv)
-
-        l = length(MSS)
-        H = zeros(ComplexF64, (l, l))
+    elseif inv==-1
+        
         for i in 1:l
             n = MSS[i]
-            Zn = 1 / 4 * sqrt(length(MSS_dic[n])) / N
+            Zn = sqrt(length(MSS_dic[n]))
             output = actingH_PXP(T, n, true)
             for m in output
                 mbar, d = get_representative(m)
                 if mbar ∈ MSS
                     j=searchsortedfirst(MSS, mbar)
-                    Zm = 1 / 4 * sqrt(length(MSS_dic[mbar])) / N
+                    Zm = sqrt(length(MSS_dic[mbar]))
                     H[i, j] +=  Zn / Zm*omegak^d
                 end
             end
         end
-        H=real(H)
-        H = (H + H') / 2  
-        
-        return H
     end
     
+    H=real(H)
+    H = (H + H') / 2  
+    
+    return H
 end
 PXP_MSS_Ham(N::Int, k::Int, inv::Int64=1) = PXP_MSS_Ham(BitStr{N, Int}, k, inv)
