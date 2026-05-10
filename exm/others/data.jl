@@ -115,3 +115,50 @@ scatter(energy_kpi, Slis, xlabel="Energy", ylabel="Entanglement Entropy", title=
 # newst = newst / norm(newst)
 # E_GS4, subE4, passive4 = ergotropy_PXP_state(L, div(L,2), newst)
 # W4 = E_GS4 - passive4
+
+L=22
+H = PXP_MSS_Ham(L, 0, 1)
+H2 = PXP_MSS_Ham(L, 0, -1)
+H3 = PXP_MSS_Ham(L, div(L,2), 1)
+H4 = PXP_MSS_Ham(L, div(L,2), -1)
+energy, states = eigen(H)
+energy2, states2 = eigen(H2)
+energy3, states3 = eigen(H3)
+energy4, states4 = eigen(H4)
+
+fig = scatter(energy, log.(states[end, :] .^2), ylim=(-12,0), title="MSS basis, L=$(L)", label=L"k=0, I=1"); 
+scatter!(fig, energy2, log.(states2[end, :] .^2), ylim=(-12,0), label=L"k=0, I=-1")
+scatter!(fig, energy3, log.(states3[end, :] .^2), ylim=(-12,0), label=L"k=\pi, I=1")
+scatter!(fig, energy4, log.(states4[end, :] .^2), ylim=(-12,0), label=L"k=\pi, I=-1")
+
+
+
+# L=22
+# Hk = PXP_K_Ham(L, 0)
+# Hk2 = PXP_K_Ham(L, div(L,2))
+# energyk, statesk = eigen(Hk)
+# energyk2, statesk2 = eigen(Hk2)
+
+fig = scatter(energyk, log.(statesk[end, :] .^2), ylim=(-14,0), title="K basis, L=$(L)", label=L"k=0"); 
+scatter(fig, energyk2, log.(statesk2[end, :] .^2), label=L"k=π")
+
+
+scar_indexlis16=[1, 2, 9, 27, 82, 202, 408, 728, 1075, 1480, 1800, 2006, 2126, 2181, 2199, 2206, 2207];
+@show log.(states_origin[end, scar_indexlis16] .^2)
+@show energy_origin[scar_indexlis16]
+H_origin = PXP_Ham(16)
+energy_origin, states_origin = eigen(H_origin)
+GS = states_origin[:, 1]
+st = states_origin[:, 1480];
+Inv = inversion_matrix(16)
+T = translation_matrix(16)
+st'*(Inv*st)
+st'*(T*st)
+GS'*(Inv*GS)
+GS'*(T*GS)
+
+GS_Ip = (I(2207) .+ Inv)/2*GS
+GS_Im = (I(2207) .- Inv)/2*GS
+GS_Ip = GS_Ip / norm(GS_Ip)
+GS_Im = GS_Im / norm(GS_Im)
+GS_Ip'*Inv*GS_Ip
