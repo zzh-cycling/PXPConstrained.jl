@@ -183,57 +183,6 @@ MSS_Ham = W_MSS' * PXP_K_Ham(10, 0) * W_MSS  # Project Hamiltonian to MSS subspa
 ```
 """
 function iso_K2MSS(::Type{T}, k::Int64, inv::Int64=1) where {N, T <: BitStr{N}}
-#Function to map the MSS basis to the K space basis
-    @assert k == 0 || k==div(N,2) "k is expected to be 0 or $(div(N,2)), but got $k"
-    @assert inv ==1 || inv==-1 "inv is expected to be 1 or -1, but got $(inv)"
-    basisK, k_dic = PXP_K_basis(T, k)
-
-    MSS_dic = Dict{Int, Vector{Int64}}()
-    # MSS_dic is a dictionary, the key is the representative state of the inversion of n, and the value is the index of the state in the basisK. NOTE that MSS_dic is not sorted, so we need to sort it later.
-    qlist = Vector{Int}(undef, 0)
-    # Below procedure is to collapse the extra basis in K space that can be converted mutually to MSS space.
-    if inv==1 && k==0 || inv==-1 && k==div(N,2)
-        for i in eachindex(basisK)
-            n = basisK[i]
-            # here we calculate the representative state of the inversion of n
-            nR = get_representative(breflect(n))[1]
-            # For example, n = 41, nR=37, then we only need to keep n=37, and n=41 will be removed.
-            if n <= min(nR, n)
-                push!(qlist, length(Set([n, nR])))
-            end
-            n = min(nR, n)
-                if haskey(MSS_dic, n)
-                    push!(MSS_dic[n], i)
-                else
-                    MSS_dic[n] = [i]
-                end
-        end
-
-    else
-        for i in eachindex(basisK)
-            n = basisK[i]
-            nR = get_representative(breflect(n))[1]
-            if n != nR
-                n = min(nR, n)
-                if haskey(MSS_dic, n)
-                    push!(MSS_dic[n], i)
-                else
-                    MSS_dic[n] = [i]
-                end
-                push!(qlist, 2)
-            end     
-        end    
-    end
-
-    iso = zeros((length(basisK), length(MSS_dic)))
-    MSS_dic=sort(MSS_dic)
-    for (i, state_index) in enumerate(values(MSS_dic))
-        iso[state_index, i] .= 1/sqrt(qlist[i])
-    end
-
-    return iso
-end
-function iso_K2MSS(::Type{T}, k::Int64, inv::Int64=1) where {N, T <: BitStr{N}}
      # Only k=0 and k=pi(=N/2) are allowed for MSS construction.
      @assert k == 0 || k == div(N, 2) "k is expected to be 0 or $(div(N,2)),but got $k"
      # Inversion eigenvalue must be +1 (even) or -1 (odd).
