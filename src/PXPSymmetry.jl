@@ -183,6 +183,57 @@ MSS_Ham = W_MSS' * PXP_K_Ham(10, 0) * W_MSS  # Project Hamiltonian to MSS subspa
 ```
 """
 function iso_K2MSS(::Type{T}, k::Int64, inv::Int64=1) where {N, T <: BitStr{N}}
+#Function to map the MSS basis to the K space basis
+    @assert k == 0 || k==div(N,2) "k is expected to be 0 or $(div(N,2)), but got $k"
+    @assert inv ==1 || inv==-1 "inv is expected to be 1 or -1, but got $(inv)"
+    basisK, k_dic = PXP_K_basis(T, k)
+
+    MSS_dic = Dict{Int, Vector{Int64}}()
+    # MSS_dic is a dictionary, the key is the representative state of the inversion of n, and the value is the index of the state in the basisK. NOTE that MSS_dic is not sorted, so we need to sort it later.
+    qlist = Vector{Int}(undef, 0)
+    # Below procedure is to collapse the extra basis in K space that can be converted mutually to MSS space.
+    if inv==1 && k==0 || inv==-1 && k==div(N,2)
+        for i in eachindex(basisK)
+            n = basisK[i]
+            # here we calculate the representative state of the inversion of n
+            nR = get_representative(breflect(n))[1]
+            # For example, n = 41, nR=37, then we only need to keep n=37, and n=41 will be removed.
+            if n <= min(nR, n)
+                push!(qlist, length(Set([n, nR])))
+            end
+            n = min(nR, n)
+                if haskey(MSS_dic, n)
+                    push!(MSS_dic[n], i)
+                else
+                    MSS_dic[n] = [i]
+                end
+        end
+
+    else
+        for i in eachindex(basisK)
+            n = basisK[i]
+            nR = get_representative(breflect(n))[1]
+            if n != nR
+                n = min(nR, n)
+                if haskey(MSS_dic, n)
+                    push!(MSS_dic[n], i)
+                else
+                    MSS_dic[n] = [i]
+                end
+                push!(qlist, 2)
+            end     
+        end    
+    end
+
+    iso = zeros((length(basisK), length(MSS_dic)))
+    MSS_dic=sort(MSS_dic)
+    for (i, state_index) in enumerate(values(MSS_dic))
+        iso[state_index, i] .= 1/sqrt(qlist[i])
+    end
+
+    return iso
+end
+function iso_K2MSS(::Type{T}, k::Int64, inv::Int64=1) where {N, T <: BitStr{N}}
      # Only k=0 and k=pi(=N/2) are allowed for MSS construction.
      @assert k == 0 || k == div(N, 2) "k is expected to be 0 or $(div(N,2)),but got $k"
      # Inversion eigenvalue must be +1 (even) or -1 (odd).
@@ -457,8 +508,7 @@ function PXP_K_basis(::Type{T}, k::Int64) where {N, T <: BitStr{N}}
 end
 PXP_K_basis(N::Int, k::Int64) = PXP_K_basis(BitStr{N, Int}, k)
 
-
-function PXP_MSS_basis(::Type{T}, k::Int64,inv::Int64=1) where {N, T <: BitStr{N}}
+function PXP_MSS_basis(::Type{T}, k::Int64, inv::Int64=1) where {N, T <: BitStr{N}}
 #params: a int of lattice number and momentum of system, we have considered the inversion symmetry
 #return: computational basis in given momentum inversion symmetry subspace with decimal int form
     @assert k == 0 || k==div(N,2) "k is expected to be 0 or $(div(N,2)), but got $k"
@@ -470,26 +520,45 @@ function PXP_MSS_basis(::Type{T}, k::Int64,inv::Int64=1) where {N, T <: BitStr{N
 
     # q is the number of states that are equivalent under inversion
     qlist = Vector{Int}(undef, 0)
-    
     for i in eachindex(basisK)
         n = basisK[i]
         # here we calculate the representative state of the inversion of n
-        nR = get_representative(breflect(n))[1]
+        nR, d = get_representative(breflect(n))
+        q = length(Set([n, nR]))
         if n <= min(nR, n)
-            push!(MSS, n)
-            MSS_dic[n] = basis_dic[n]
-            push!(qlist, length(Set([n, nR])))
+            if k == 0
+                # At k=0, q=1 states are always even under inversion
+                if inv == 1
+                    push!(MSS, n)
+                    MSS_dic[n] = basis_dic[n]
+                    push!(qlist, q)
+                elseif inv == -1 && q == 2
+                    push!(MSS, n)
+                    MSS_dic[n] = basis_dic[n]
+                    push!(qlist, q)
+                end
+    # For k=0, the inversion invariant states (n=nR) belong to the +1 sector, while the states that are not invariant (n!=nR) form pairs that contribute to both +1 and -1 sectors. 
+    # For k=π, the situation is reversed: the invariant states belong to the -1 sector, and the non-invariant pairs contribute to both sectors. Therefore, we need to filter MSS based on the inversion eigenvalue inv and update MSS_dic accordingly.
+            else  # k == div(N, 2), i.e. k=π
+                # At k=π, q=1 states have inversion eigenvalue (-1)^d
+                if q == 1
+                    parity = d % 2 == 0 ? 1 : -1
+                    if parity == inv
+                        push!(MSS, n)
+                        MSS_dic[n] = basis_dic[n]
+                        push!(qlist, q)
+                    end
+                else
+                    push!(MSS, n)
+                    MSS_dic[n] = basis_dic[n]
+                    push!(qlist, q)
+                end
+            end
         end
     end
-    
-    if inv==-1
-        index=findall(x -> x==2, qlist)
-        MSS = MSS[index]
-        MSS_dic = Dict(k => v for k in MSS for v in [MSS_dic[k]])
-    end   
+
     return MSS, MSS_dic, qlist
 end
-
 PXP_MSS_basis(N::Int, k::Int64, inv::Int64=1) = PXP_MSS_basis(BitStr{N, Int}, k, inv)
 
 function PXP_K_Ham(::Type{T}, k::Int, Omega::Float64=1.0) where {N, T <: BitStr{N}}
@@ -536,8 +605,7 @@ function PXP_MSS_Ham(::Type{T}, k::Int, inv::Int64=1) where {N, T <: BitStr{N}}
     l = length(MSS)
     H = zeros(ComplexF64, (l, l))
 
-    if inv==1
-    
+    if inv==1 && k==0 || inv==-1 && k==div(N,2)
         for i in 1:l
             n = MSS[i]
             Zn = sqrt(qlist[i]) * sqrt(length(MSS_dic[n]))
@@ -555,8 +623,7 @@ function PXP_MSS_Ham(::Type{T}, k::Int, inv::Int64=1) where {N, T <: BitStr{N}}
             end
         end
 
-    elseif inv==-1
-        
+    elseif inv==-1 && k==0 || inv==1 && k==div(N,2)
         for i in 1:l
             n = MSS[i]
             Zn = sqrt(length(MSS_dic[n]))

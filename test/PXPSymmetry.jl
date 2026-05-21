@@ -35,6 +35,14 @@ end
     end
 end
 
+@testset "MSS basis" begin
+    # Test whether the basis is correct
+    @test length(PXP_MSS_basis(28, 14, -1)[1]) == 13010
+    @test length(PXP_MSS_basis(28, 14, 1)[1]) == 12400 # 13010 + 12400 = 25410 length(PXP_K_basis(28, 14)[1])
+    @test length(PXP_MSS_basis(28, 0, 1)[1]) == 13201
+    @test length(PXP_MSS_basis(28, 0, -1)[1]) == 12214 # 13201 + 12214 = 25415 length(PXP_K_basis(28, 0)[1])
+end
+
 @testset "pxp k and mss 4n" begin
     N=12
     basisK= PXP_K_basis(N, 3)[1]
