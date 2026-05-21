@@ -269,8 +269,19 @@ end
 @testset "iso_K2MSS, K=π,I=-1" begin
     L=12
     Hkπ = PXP_K_Ham(L, div(L,2))
+    basisKπ = PXP_K_basis(L, div(L,2))[1]
     iso1 = iso_K2MSS(L, div(L,2), 1)
     iso2 = iso_K2MSS(L, div(L,2), -1)
+    reps1 = [minimum(basisKπ[i].buf for i in findall(abs.(iso1[:, c]) .> 1e-12)) for c in 1:size(iso1, 2)]
+    reps2 = [minimum(basisKπ[i].buf for i in findall(abs.(iso2[:, c]) .> 1e-12)) for c in 1:size(iso2, 2)]
+    @test issorted(reps1)
+    @test issorted(reps2)
+    # In K basis each inversion eigenvector should be supported on one orbit
+    # representative (self-reflection) or on a representative pair.
+    nz1 = vec(sum(abs.(iso1) .> 1e-12, dims=1))
+    nz2 = vec(sum(abs.(iso2) .> 1e-12, dims=1))
+    @test maximum(nz1) <= 2
+    @test maximum(nz2) <= 2
     HMSS1 = iso1'*Hkπ*iso1
     HMSS2 = iso2'*Hkπ*iso2
 

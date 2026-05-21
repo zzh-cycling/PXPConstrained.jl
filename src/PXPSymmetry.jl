@@ -183,82 +183,60 @@ MSS_Ham = W_MSS' * PXP_K_Ham(10, 0) * W_MSS  # Project Hamiltonian to MSS subspa
 ```
 """
 function iso_K2MSS(::Type{T}, k::Int64, inv::Int64=1) where {N, T <: BitStr{N}}
-     # Only k=0 and k=pi(=N/2) are allowed for MSS construction.
-     @assert k == 0 || k == div(N, 2) "k is expected to be 0 or $(div(N,2)),but got $k"
-     # Inversion eigenvalue must be +1 (even) or -1 (odd).
-     @assert inv == 1 || inv == -1 "inv is expected to be 1 or -1, but got $inv"
+    # Only k=0 and k=pi(=N/2) are allowed for MSS construction.
+    @assert k == 0 || k == div(N, 2) "k is expected to be 0 or $(div(N,2)),but got $k"
+    # Inversion eigenvalue must be +1 (even) or -1 (odd).
+    @assert inv == 1 || inv == -1 "inv is expected to be 1 or -1, but got $inv"
 
-     basisK, basis_dic = PXP_K_basis(T, k)
-     nK = length(basisK)
+    basisK, _ = PXP_K_basis(T, k)
+    nK = length(basisK)
+    index_of = Dict{T, Int}()
+    for (i, n) in enumerate(basisK)
+        index_of[n] = i
+    end
 
-     # k=0: reflection carries no momentum phase and the representative-pair
-     # construction gives an explicit deterministic basis.
-     if k == 0
-         rep_dict = Dict{T, Vector{Int64}}()
-         for i in 1:nK
-             n = basisK[i]
-             nR = get_representative(breflect(n))[1]
-             if inv == 1 || n != nR
-                 rep = min(n, nR)
-                 if haskey(rep_dict, rep)
-                     push!(rep_dict[rep], i)
-                 else
-                     rep_dict[rep] = [i]
-                 end
-             end
-         end
+    η = k == 0 ? 1 : -1
+    visited = falses(nK)
+    columns = Vector{Vector{Tuple{Int, Float64}}}()
 
-         reps = sort(collect(keys(rep_dict)))
-         nMSS = length(reps)
-         iso = zeros(nK, nMSS)
+    for i in 1:nK
+        visited[i] && continue
+        n = basisK[i]
+        nR, d = get_representative(breflect(n))
+        j = index_of[nR]
+        phase = η^d
 
-         for (col, rep) in enumerate(reps)
-             indices = rep_dict[rep]
-             if inv == 1
-                 if length(indices) == 1
-                     iso[indices[1], col] = 1.0
-                 elseif length(indices) == 2
-                     iso[indices[1], col] = 1 / sqrt(2)
-                     iso[indices[2], col] = 1 / sqrt(2)
-                 end
-             else
-                 @assert length(indices) == 2 "I=-1 sector: expected 2 indices, got $(length(indices))"
-                 idx1, idx2 = indices[1], indices[2]
-                 if basisK[idx1] == rep
-                     iso[idx1, col] = 1 / sqrt(2)
-                     iso[idx2, col] = -1 / sqrt(2)
-                 else
-                     iso[idx1, col] = -1 / sqrt(2)
-                     iso[idx2, col] = 1 / sqrt(2)
-                 end
-             end
-         end
-         return iso
-     end
+        if i == j
+            visited[i] = true
+            if phase == inv
+                push!(columns, [(i, 1.0)])
+            end
+        else
+            n2 = basisK[j]
+            n2R, d2 = get_representative(breflect(n2))
+            i2 = index_of[n2R]
+            phase2 = η^d2
+            @assert i2 == i "inversion pairing inconsistency between K-basis representatives"
+            @assert phase2 == phase "inversion phases in paired K states are inconsistent"
 
-     # k=pi: reflection picks up a state-dependent phase omega_k^dR.
-     # Build the exact reflection operator in K basis and project to its ±1 eigenspaces.
-     omegak = exp(2im * π * k / N)
-     Ik = zeros(ComplexF64, nK, nK)
-     k_index = Dict{T, Int}()
-     for (i, st) in enumerate(basisK)
-         k_index[st] = i
-     end
+            visited[i] = true
+            visited[j] = true
+            amp1 = 1 / sqrt(2)
+            amp2 = inv * phase / sqrt(2)
+            push!(columns, [(i, amp1), (j, amp2)])
+        end
+    end
 
-     for i in 1:nK
-         n = basisK[i]
-         nR, dR = get_representative(breflect(n))
-         j = get(k_index, nR, 0)
-         j == 0 && continue
-         Yn = sqrt(length(basis_dic[n])) / N
-         YR = sqrt(length(basis_dic[nR])) / N
-         Ik[j, i] += Yn / YR * omegak^dR
-     end
+    nMSS = length(columns)
+    iso = zeros(nK, nMSS)
+    for (col, entries) in enumerate(columns)
+        for (row, val) in entries
+            iso[row, col] = val
+        end
+    end
 
-     vals, vecs = eigen(Hermitian((Ik + Ik') / 2))
-     idx = findall(x -> isapprox(x, inv, atol=1e-8), vals)
-     return real(vecs[:, idx])
-  end
+    return iso
+end
 iso_K2MSS(N::Int, k::Int64, inv::Int64=1) = iso_K2MSS(BitStr{N, Int}, k, inv)
 
 """
@@ -473,8 +451,8 @@ function PXP_MSS_basis(::Type{T}, k::Int64, inv::Int64=1) where {N, T <: BitStr{
         n = basisK[i]
         # here we calculate the representative state of the inversion of n
         nR, d = get_representative(breflect(n))
-        q = length(Set([n, nR]))
-        if n <= min(nR, n)
+        q = length(Set([n, nR])) # whether is self-conjugate under inversion, q=1 means self-conjugate, q=2 means not self-conjugate
+        if n <= min(nR, n) # only consider one representative from each inversion pair, and for self-conjugate states, we only consider it once
             if k == 0
                 # At k=0, q=1 states are always even under inversion
                 if inv == 1
@@ -492,6 +470,7 @@ function PXP_MSS_basis(::Type{T}, k::Int64, inv::Int64=1) where {N, T <: BitStr{
                 # At k=π, q=1 states have inversion eigenvalue (-1)^d
                 if q == 1
                     parity = d % 2 == 0 ? 1 : -1
+    # Here d is the translation distance that relates n and its inversion nR. For k=π, the inversion eigenvalue of a self-conjugate state is determined by whether this translation distance is even or odd. If d is even, the state is even under inversion (parity=1); if d is odd, the state is odd under inversion (parity=-1). Therefore, we compare parity with inv to decide whether to include this state in MSS.
                     if parity == inv
                         push!(MSS, n)
                         MSS_dic[n] = basis_dic[n]

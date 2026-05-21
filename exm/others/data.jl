@@ -131,6 +131,10 @@ scatter!(fig, energy2, log.(states2[end, :] .^2), label=L"k=0, I=-1")
 scatter!(fig, energy3, log.(states3[end, :] .^2), label=L"k=\pi, I=1")
 scatter!(fig, energy4, log.(states4[end, :] .^2), label=L"k=\pi, I=-1")
 
+Hk = PXP_K_Ham(L, 0)
+Hk2 = PXP_K_Ham(L, div(L,2))
+energyk, statesk = eigen(Hk)
+energyk2, statesk2 = eigen(Hk2)
 
 iso1 = iso_K2MSS(L, div(L,2), 1)
 HMSS1 = iso1'*Hk2*iso1
@@ -141,11 +145,6 @@ HMSS2 = (HMSS2 + HMSS2') / 2
 energy3, states3 = eigen(HMSS1)
 energy4, states4 = eigen(HMSS2)
 
-L=22
-Hk = PXP_K_Ham(L, 0)
-Hk2 = PXP_K_Ham(L, div(L,2))
-energyk, statesk = eigen(Hk)
-energyk2, statesk2 = eigen(Hk2)
 
 fig = scatter(energyk, log.(statesk[end, :] .^2), ylim=(-14,0), title="K basis, L=$(L)", label=L"k=0"); 
 scatter(fig, energyk2, log.(statesk2[end, :] .^2), label=L"k=π")

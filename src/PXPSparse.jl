@@ -253,63 +253,49 @@ function iso_K2MSS_sparse(::Type{T}, k::Int64, inv::Int64=1) where {N, T <: BitS
 
     basisK, _ = PXP_K_basis(T, k)
     nK = length(basisK)
-
-    # Map each inversion representative to the corresponding K-basis indices.
-    rep_dict = Dict{T, Vector{Int64}}()
-    for i in 1:nK
-        n = basisK[i]
-        nR = get_representative(breflect(n))[1]
-        if inv == 1
-            rep = min(n, nR)
-            if haskey(rep_dict, rep)
-                push!(rep_dict[rep], i)
-            else
-                rep_dict[rep] = [i]
-            end
-        else
-            if n != nR
-                rep = min(n, nR)
-                if haskey(rep_dict, rep)
-                    push!(rep_dict[rep], i)
-                else
-                    rep_dict[rep] = [i]
-                end
-            end
-        end
+    index_of = Dict{T, Int}()
+    for (i, n) in enumerate(basisK)
+        index_of[n] = i
     end
 
-    reps = sort(collect(keys(rep_dict)))
-    nMSS = length(reps)
+    η = k == 0 ? 1 : -1
+    visited = falses(nK)
 
     I = Int[]
     J = Int[]
     V = Float64[]
+    col = 0
 
-    for (col, rep) in enumerate(reps)
-        indices = rep_dict[rep]
-        if inv == 1
-            if length(indices) == 1
-                push!(I, indices[1]); push!(J, col); push!(V, 1.0)
-            elseif length(indices) == 2
-                push!(I, indices[1]); push!(J, col); push!(V, 1 / sqrt(2))
-                push!(I, indices[2]); push!(J, col); push!(V, 1 / sqrt(2))
+    for i in 1:nK
+        visited[i] && continue
+        n = basisK[i]
+        nR, d = get_representative(breflect(n))
+        j = index_of[nR]
+        phase = η^d
+
+        if i == j
+            visited[i] = true
+            if phase == inv
+                col += 1
+                push!(I, i); push!(J, col); push!(V, 1.0)
             end
         else
-            @assert length(indices) == 2 "I=-1 sector: expected 2 indices, got $(length(indices))"
+            n2 = basisK[j]
+            n2R, d2 = get_representative(breflect(n2))
+            i2 = index_of[n2R]
+            phase2 = η^d2
+            @assert i2 == i "inversion pairing inconsistency between K-basis representatives"
+            @assert phase2 == phase "inversion phases in paired K states are inconsistent"
 
-            idx1, idx2 = indices[1], indices[2]
-            n1 = basisK[idx1]
-            if n1 == rep
-                push!(I, idx1); push!(J, col); push!(V, 1 / sqrt(2))
-                push!(I, idx2); push!(J, col); push!(V, -1 / sqrt(2))
-            else
-                push!(I, idx1); push!(J, col); push!(V, -1 / sqrt(2))
-                push!(I, idx2); push!(J, col); push!(V, 1 / sqrt(2))
-            end
+            visited[i] = true
+            visited[j] = true
+            col += 1
+            push!(I, i); push!(J, col); push!(V, 1 / sqrt(2))
+            push!(I, j); push!(J, col); push!(V, inv * phase / sqrt(2))
         end
     end
 
-    return sparse(I, J, V, nK, nMSS)
+    return sparse(I, J, V, nK, col)
 end
 iso_K2MSS_sparse(N::Int, k::Int64, inv::Int64=1) = iso_K2MSS_sparse(BitStr{N, Int}, k, inv)
 
@@ -320,5 +306,4 @@ function iso_total2MSS_sparse(::Type{T}, k::Int64, inv::Int64=1) where {N, T <: 
     return iso
 end
 iso_total2MSS_sparse(N::Int, k::Int64, inv::Int64=1) = iso_total2MSS_sparse(BitStr{N, Int}, k, inv)
-
 
