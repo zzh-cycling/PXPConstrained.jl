@@ -523,56 +523,54 @@ PXP_K_Ham(N::Int, k::Int, Omega::Float64=1.0) = PXP_K_Ham(BitStr{N, Int}, k, Ome
 
 function PXP_MSS_Ham(::Type{T}, k::Int, inv::Int64=1) where {N, T <: BitStr{N}}
 #params: a int of lattice number, momentum of system and interaction strength of system which default to be 1
-#return: the Hamiltonian matrix in given maximum symmetry space 
+#return: the Hamiltonian matrix in given maximum symmetry space
     @assert k == 0 || k==div(N,2) "k is expected to be 0 or $(div(N,2)), but got $k"
     @assert inv ==1 || inv==-1 "inv is expected to be 1 or -1, but got $(inv)"
 
-    omegak = exp(2im * π * k / N)
-    
-    MSS, MSS_dic, qlist = PXP_MSS_basis(T, k, inv)
-    l = length(MSS)
-    H = zeros(ComplexF64, (l, l))
+    basisK, basis_dic = PXP_K_basis(T, k)
+    nK = length(basisK)
+    η = k == 0 ? 1.0 : -1.0
 
-    if inv==1 && k==0 || inv==-1 && k==div(N,2)
-        for i in 1:l
-            n = MSS[i]
-            Zn = sqrt(qlist[i]) * sqrt(length(MSS_dic[n]))
-            # Zn is the normalization factor for the state n in MSS, which is the square root of the number of states in K space that are equivalent to n under inversion, multiplied by the square root of the number of states in MSS that are equivalent to n under inversion. This is because when we map from K space to MSS space, we need to sum over all the states in K space that are equivalent to n under inversion, and each state in K space has a normalization factor of 1/sqrt(length(basis_dic[n])), and there are length(MSS_dic[n]) states in MSS that are equivalent to n under inversion, so we need to multiply by sqrt(length(MSS_dic[n])) to get the correct normalization factor for the state n in MSS.
-            output = actingH_PXP(T, n, true)
-            for m in output
-                mbar, d = get_representative(m)
-                inv_mbar = get_representative(breflect(mbar))[1]
-                mtilde = min(mbar, inv_mbar)
-                if mtilde ∈ MSS
-                    j = searchsortedfirst(MSS, mtilde)
-                    Zm = sqrt(qlist[j]) * sqrt(length(MSS_dic[mtilde])) 
-                    H[i, j] +=  Zn / Zm*omegak^d
-                end
-            end
-        end
+    iso = iso_K2MSS(T, k, inv)
+    nMSS = size(iso, 2)
 
-    elseif inv==-1 && k==0 || inv==1 && k==div(N,2)
-        for i in 1:l
-            n = MSS[i]
-            Zn = sqrt(length(MSS_dic[n]))
-            output = actingH_PXP(T, n, true)
-            for m in output
-                mbar, d = get_representative(m)
-                inv_mbar = get_representative(breflect(mbar))[1]
-                mtilde = min(mbar, inv_mbar)
-                @show m.buf, mbar.buf, inv_mbar.buf, mtilde.buf
-                if mtilde ∈ MSS
-                    j=searchsortedfirst(MSS, mtilde)
-                    Zm = sqrt(length(MSS_dic[mtilde]))
-                    H[i, j] +=  Zn / Zm*omegak^d
-                end
-            end
+    row_to_col = fill(0, nK)
+    row_coeff = zeros(Float64, nK)
+    for col in 1:nMSS
+        for row in findall(!iszero, @view iso[:, col])
+            row_to_col[row] = col
+            row_coeff[row] = iso[row, col]
         end
     end
-    
-    H=real(H)
-    H = (H + H') / 2  
-    
-    return H
+
+    k_index = Dict{T, Int}()
+    for (i, n) in enumerate(basisK)
+        k_index[n] = i
+    end
+
+    H = zeros(Float64, nMSS, nMSS)
+    for ket_idx in 1:nK
+        ket_col = row_to_col[ket_idx]
+        ket_col == 0 && continue
+
+        ket_coeff = row_coeff[ket_idx]
+        ket_rep = basisK[ket_idx]
+        Yn = sqrt(length(basis_dic[ket_rep])) / N
+
+        for out_state in actingH_PXP(T, ket_rep, true)
+            bra_rep, d = get_representative(out_state)
+            bra_idx = get(k_index, bra_rep, 0)
+            bra_idx == 0 && continue
+
+            bra_col = row_to_col[bra_idx]
+            bra_col == 0 && continue
+
+            Ym = sqrt(length(basis_dic[bra_rep])) / N
+            hij = Yn / Ym * (η^d)
+            H[bra_col, ket_col] += row_coeff[bra_idx] * hij * ket_coeff
+        end
+    end
+
+    return (H + transpose(H)) / 2
 end
 PXP_MSS_Ham(N::Int, k::Int, inv::Int64=1) = PXP_MSS_Ham(BitStr{N, Int}, k, inv)
