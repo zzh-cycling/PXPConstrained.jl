@@ -132,63 +132,60 @@ eigenvals, eigenvecs = eigen(H_mss)
 """
 function PXP_MSS_Ham_sparse(::Type{T}, k::Int, inv::Int64=1) where {N, T <: BitStr{N}}
     #params: a int of lattice number, momentum of system and interaction strength of system which default to be 1, k is the momentum of system, only can take 0 or pi, inv is the inversion of the Hamiltonian, only 1 or -1.
-    #return: the Hamiltonian matrix in given maximum symmetry space   
-    # omegak = exp(2im * π * k / N)
+    #return: the Hamiltonian matrix in given maximum symmetry space
     @assert k == 0 || k==div(N,2) "k is expected to be 0 or $(div(N,2)), but got $k"
     @assert inv ==1 || inv==-1 "inv is expected to be 1 or -1, but got $(inv)"
 
-    omegak= k == 0 ? 1 : -1
-    
-    if inv==1 && k==0 || k==div(N,2) && inv==-1
-        MSS, MSS_dic, qlist = PXP_MSS_basis(T, k, inv)
+    basisK, basis_dic = PXP_K_basis(T, k)
+    nK = length(basisK)
+    η = k == 0 ? 1.0 : -1.0
 
-        l = length(MSS)
-        # H = spzeros(Float64, (l, l))
-        # matrix_elements = Dict{Tuple{Int,Int}, Float64}()
-        I, J, V = Int[], Int[], Float64[]
-        for i in 1:l
-            n = MSS[i]
-            Zn = sqrt(qlist[i]) / 4 * sqrt(length(MSS_dic[n])) / N
-            output = actingH_PXP(T, n, true)
-            for m in output
-                mbar, d = get_representative(m)
-                inv_mbar = get_representative(breflect(mbar))[1]
-                mtilde = min(mbar, inv_mbar)
-                if mtilde ∈ MSS
-                    j = searchsortedfirst(MSS, mtilde)
-                    Zm = sqrt(qlist[j]) / 4 * sqrt(length(MSS_dic[mtilde])) / N
-                    # H[i, j] += Zn / Zm*omegak^d 
-                    push!(I, i); push!(J, j); push!(V, Zn / Zm*omegak^d)
-                end
-            end
-        end
-    
-        H = sparse(I, J, V, l, l)
-        H = (H + H') / 2
-    elseif inv==1 && k==div(N,2) || inv==-1 && k==0
-        MSS, MSS_dic = PXP_MSS_basis(T, k, inv)
+    iso = iso_K2MSS_sparse(T, k, inv)
+    nMSS = size(iso, 2)
 
-        l = length(MSS)
-        I, J, V = Int[], Int[], Float64[]
-        for i in 1:l
-            n = MSS[i]
-            Zn = 1 / 4 * sqrt(length(MSS_dic[n])) / N
-            output = actingH_PXP(T, n, true)
-            for m in output
-                mbar, d = get_representative(m)
-                if mbar ∈ MSS
-                    j=searchsortedfirst(MSS, mbar)
-                    Zm = 1 / 4 * sqrt(length(MSS_dic[mbar])) / N
-                    # H[i, j] +=  Zn / Zm*omegak^d
-                    push!(I, i); push!(J, j); push!(V, Zn / Zm*omegak^d)
-                end
-            end
-        end
-    
-        H = sparse(I, J, V, l, l)
-        H = (H + H') / 2
+    K2MSS_col = fill(0, nK)
+    K2MSS_coef = zeros(Float64, nK)
+    rows, cols, vals = findnz(iso)
+    for idx in eachindex(rows)
+        K2MSS_col[rows[idx]] = cols[idx]
+        K2MSS_coef[rows[idx]] = vals[idx]
     end
 
+    k_index = Dict{T, Int}()
+    for i in eachindex(basisK)
+        k_index[basisK[i]] = i
+    end
+
+    I = Int[]
+    J = Int[]
+    V = Float64[]
+    for ket_idx in 1:nK
+        ket_col = K2MSS_col[ket_idx]
+        ket_col == 0 && continue
+
+        ket_coeff = K2MSS_coef[ket_idx]
+        ket_rep = basisK[ket_idx]
+        Yn = sqrt(length(basis_dic[ket_rep])) / N
+
+        output = actingH_PXP(T, ket_rep, true)
+        for out_state in output
+            bra_rep, d = get_representative(out_state)
+            bra_idx = get(k_index, bra_rep, 0)
+            bra_idx == 0 && continue
+
+            bra_col = K2MSS_col[bra_idx]
+            bra_col == 0 && continue
+
+            Ym = sqrt(length(basis_dic[bra_rep])) / N
+            hij = Yn / Ym * (η^d)
+            push!(I, bra_col)
+            push!(J, ket_col)
+            push!(V, K2MSS_coef[bra_idx] * hij * ket_coeff)
+        end
+    end
+
+    H = sparse(I, J, V, nMSS, nMSS)
+    H = (H + transpose(H)) / 2
     return H
 end
 PXP_MSS_Ham_sparse(N::Int64, k::Int, inv::Int64=1) = PXP_MSS_Ham_sparse(BitStr{N, Int}, k, inv)
@@ -306,4 +303,3 @@ function iso_total2MSS_sparse(::Type{T}, k::Int64, inv::Int64=1) where {N, T <: 
     return iso
 end
 iso_total2MSS_sparse(N::Int, k::Int64, inv::Int64=1) = iso_total2MSS_sparse(BitStr{N, Int}, k, inv)
-

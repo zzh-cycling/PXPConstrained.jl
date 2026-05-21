@@ -183,55 +183,59 @@ MSS_Ham = W_MSS' * PXP_K_Ham(10, 0) * W_MSS  # Project Hamiltonian to MSS subspa
 ```
 """
 function iso_K2MSS(::Type{T}, k::Int64, inv::Int64=1) where {N, T <: BitStr{N}}
-    # Only k=0 and k=pi(=N/2) are allowed for MSS construction.
+    # Function to map K basis to MSS basis.
+    # k can only be 0 or N/2 (pi), inv can only be +1 or -1.
     @assert k == 0 || k == div(N, 2) "k is expected to be 0 or $(div(N,2)),but got $k"
-    # Inversion eigenvalue must be +1 (even) or -1 (odd).
     @assert inv == 1 || inv == -1 "inv is expected to be 1 or -1, but got $inv"
 
     basisK, _ = PXP_K_basis(T, k)
     nK = length(basisK)
-    index_of = Dict{T, Int}()
-    for (i, n) in enumerate(basisK)
-        index_of[n] = i
+    basisK_dic = Dict{T, Int}()
+    for i in eachindex(basisK)
+        basisK_dic[basisK[i]] = i
     end
 
-    η = k == 0 ? 1 : -1
-    visited = falses(nK)
-    columns = Vector{Vector{Tuple{Int, Float64}}}()
+    omegak = k == 0 ? 1 : -1
+    rep_dic = Dict{T, Vector{Int64}}()
+    phase_dic = Dict{T, Int64}()
 
-    for i in 1:nK
-        visited[i] && continue
+    for i in eachindex(basisK)
         n = basisK[i]
         nR, d = get_representative(breflect(n))
-        j = index_of[nR]
-        phase = η^d
+        rep = min(n, nR)
+        haskey(rep_dic, rep) && continue
 
-        if i == j
-            visited[i] = true
+        if n == nR
+            phase = omegak^d
             if phase == inv
-                push!(columns, [(i, 1.0)])
+                rep_dic[rep] = [i]
+                phase_dic[rep] = phase
             end
         else
-            n2 = basisK[j]
-            n2R, d2 = get_representative(breflect(n2))
-            i2 = index_of[n2R]
-            phase2 = η^d2
-            @assert i2 == i "inversion pairing inconsistency between K-basis representatives"
-            @assert phase2 == phase "inversion phases in paired K states are inconsistent"
-
-            visited[i] = true
-            visited[j] = true
-            amp1 = 1 / sqrt(2)
-            amp2 = inv * phase / sqrt(2)
-            push!(columns, [(i, amp1), (j, amp2)])
+            repR, drep = get_representative(breflect(rep))
+            idx_rep = basisK_dic[rep]
+            idx_repR = basisK_dic[repR]
+            rep_dic[rep] = [idx_rep, idx_repR]
+            phase_dic[rep] = omegak^drep
         end
     end
 
-    nMSS = length(columns)
+    reps = sort(collect(keys(rep_dic)))
+    nMSS = length(reps)
     iso = zeros(nK, nMSS)
-    for (col, entries) in enumerate(columns)
-        for (row, val) in entries
-            iso[row, col] = val
+
+    for (col, rep) in enumerate(reps)
+        indices = rep_dic[rep]
+        phase = phase_dic[rep]
+
+        if length(indices) == 1
+            iso[indices[1], col] = 1.0
+        else
+            @assert length(indices) == 2 "Unexpected number of K-indices for rep $rep: $(length(indices))"
+            idx1 = indices[1]
+            idx2 = indices[2]
+            iso[idx1, col] = 1 / sqrt(2)
+            iso[idx2, col] = inv * phase / sqrt(2)
         end
     end
 
@@ -266,47 +270,54 @@ function mapstate_MSS2K(::Type{T}, state::Vector{ET}, k::Int64, inv::Int64=1) wh
     @assert k == 0 || k==div(N,2) "k is expected to be 0 or $(div(N,2)), but got $k"
     @assert inv ==1 || inv==-1 "inv is expected to be 1 or -1, but got $(inv)"
 
-    basisK, k_dic = PXP_K_basis(T, k)
-
-    MSS_dic = Dict{Int, Vector{Int64}}()
-    qlist = Vector{Int}(undef, 0)
-   
-    if inv==1 && k==0 || inv==-1 && k==div(N,2)
-        for i in eachindex(basisK)
-            n = basisK[i]
-            nR = get_representative(breflect(n))[1]
-            if n <= min(nR, n)
-                push!(qlist, length(Set([n, nR])))
-            end
-            n = min(nR, n)
-            if haskey(MSS_dic, n)
-                push!(MSS_dic[n], i)
-            else
-                MSS_dic[n] = [i]
-            end
-        end
-
-    elseif inv==1 && k==div(N,2) || inv==-1 && k==0
-        for i in eachindex(basisK)
-            n = basisK[i]
-            nR = get_representative(breflect(n))[1]
-            if n != nR
-                n = min(nR, n)
-                if haskey(MSS_dic, n)
-                    push!(MSS_dic[n], i)
-                else
-                    MSS_dic[n] = [i]
-                end
-                push!(qlist, 2)
-            end
-        end    
+    basisK, basis_dic = PXP_K_basis(T, k)
+    nK = length(basisK)
+    basisK_dic = Dict{T, Int}()
+    for i in eachindex(basisK)
+        basisK_dic[basisK[i]] = i
     end
 
+    omegak = k == 0 ? 1 : -1
+    rep_dic = Dict{T, Vector{Int64}}()
+    phase_dic = Dict{T, Int64}()
 
-    total_state = zeros(ET, length(basisK))
-    MSS_dic=sort(MSS_dic)
-    for (i, state_index) in enumerate(values(MSS_dic))
-        total_state[state_index] .= 1/sqrt(qlist[i])*state[i]
+    for i in eachindex(basisK)
+        n = basisK[i]
+        nR, d = get_representative(breflect(n))
+        rep = min(n, nR)
+        haskey(rep_dic, rep) && continue
+
+        if n == nR
+            phase = omegak^d
+            if phase == inv
+                rep_dic[rep] = [i]
+                phase_dic[rep] = phase
+            end
+        else
+            repR, drep = get_representative(breflect(rep))
+            idx_rep = basisK_dic[rep]
+            idx_repR = basisK_dic[repR]
+            rep_dic[rep] = [idx_rep, idx_repR]
+            phase_dic[rep] = omegak^drep
+        end
+    end
+
+    reps = sort(collect(keys(rep_dic)))
+    nMSS = length(reps)
+    @assert length(state) == nMSS "state length is expected to be $nMSS, but got $(length(state))"
+
+    total_state = zeros(ET, nK)
+    for (col, rep) in enumerate(reps)
+        indices = rep_dic[rep]
+        phase = phase_dic[rep]
+        if length(indices) == 1
+            total_state[indices[1]] = state[col]
+        else
+            idx1 = indices[1]
+            idx2 = indices[2]
+            total_state[idx1] = state[col] / sqrt(2)
+            total_state[idx2] = inv * phase * state[col] / sqrt(2)
+        end
     end
 
     return total_state
@@ -534,12 +545,15 @@ function PXP_MSS_Ham(::Type{T}, k::Int, inv::Int64=1) where {N, T <: BitStr{N}}
     iso = iso_K2MSS(T, k, inv)
     nMSS = size(iso, 2)
 
-    row_to_col = fill(0, nK)
-    row_coeff = zeros(Float64, nK)
+    K2MSS_col = fill(0, nK)
+    K2MSS_coef = zeros(Float64, nK)
     for col in 1:nMSS
-        for row in findall(!iszero, @view iso[:, col])
-            row_to_col[row] = col
-            row_coeff[row] = iso[row, col]
+        for row in 1:nK
+            coeff = iso[row, col]
+            if coeff != 0.0
+                K2MSS_col[row] = col
+                K2MSS_coef[row] = coeff
+            end
         end
     end
 
@@ -550,10 +564,10 @@ function PXP_MSS_Ham(::Type{T}, k::Int, inv::Int64=1) where {N, T <: BitStr{N}}
 
     H = zeros(Float64, nMSS, nMSS)
     for ket_idx in 1:nK
-        ket_col = row_to_col[ket_idx]
+        ket_col = K2MSS_col[ket_idx]
         ket_col == 0 && continue
 
-        ket_coeff = row_coeff[ket_idx]
+        ket_coeff = K2MSS_coef[ket_idx]
         ket_rep = basisK[ket_idx]
         Yn = sqrt(length(basis_dic[ket_rep])) / N
 
@@ -562,15 +576,15 @@ function PXP_MSS_Ham(::Type{T}, k::Int, inv::Int64=1) where {N, T <: BitStr{N}}
             bra_idx = get(k_index, bra_rep, 0)
             bra_idx == 0 && continue
 
-            bra_col = row_to_col[bra_idx]
+            bra_col = K2MSS_col[bra_idx]
             bra_col == 0 && continue
 
             Ym = sqrt(length(basis_dic[bra_rep])) / N
             hij = Yn / Ym * (η^d)
-            H[bra_col, ket_col] += row_coeff[bra_idx] * hij * ket_coeff
+            H[bra_col, ket_col] += K2MSS_coef[bra_idx] * hij * ket_coeff
         end
     end
 
-    return (H + transpose(H)) / 2
+    return (H + H') / 2
 end
 PXP_MSS_Ham(N::Int, k::Int, inv::Int64=1) = PXP_MSS_Ham(BitStr{N, Int}, k, inv)

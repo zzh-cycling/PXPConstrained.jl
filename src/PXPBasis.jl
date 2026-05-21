@@ -422,7 +422,7 @@ end
 iso_matrix = iso_full2cons(BitStr{6, Int}, true)
 ```
 """
-function iso_full2cons(::Type{T}, pbc::Bool) where {N, T <: BitStr{N}}
+function iso_full2cons(::Type{T}, pbc::Bool=true) where {N, T <: BitStr{N}}
     basis = PXP_basis(T, pbc)
     l = length(basis)
     map_matrix = zeros(Int64, (2^N, l))
@@ -432,4 +432,4 @@ function iso_full2cons(::Type{T}, pbc::Bool) where {N, T <: BitStr{N}}
     end
     return map_matrix
 end
-iso_full2cons(N::Int, pbc::Bool) = iso_full2cons(BitStr{N, Int}, pbc)
+iso_full2cons(N::Int, pbc::Bool=true) = iso_full2cons(BitStr{N, Int}, pbc)
